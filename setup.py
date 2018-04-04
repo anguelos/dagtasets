@@ -8,6 +8,9 @@ setup(
     packages=['dagtasets',],
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
     long_description=open('README.md').read(),
+    author='Anguelos Nicolaou',
+    author_email='anguelos.nicolaou@gmail.com',
+    url='https://github.com/anguelos/dagtasets',
     install_requires=[
         'torch','torchvision','numpy'
     ],
