@@ -2,4 +2,4 @@
 """
 
 from dagtasets.siamese import SiameseDs
-from dagtasets.wi2013 import  wi2013
+from dagtasets.wi2013 import  WI2013
