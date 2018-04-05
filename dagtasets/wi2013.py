@@ -19,8 +19,6 @@ transform_384_train = transforms.Compose([
 ])
 
 transform_test = transforms.Compose([
-    transforms.RandomCrop([384,1024]),
-    transforms.Resize((192,512)),
     transforms.Grayscale(),
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -60,7 +58,8 @@ class WI2013(data.Dataset):
 
         :param root: The directory were everything is stored.
         :param train: Boolean, selects the data-partion and the default preprocessing
-        :param transform: Image preprocessing
+        :param transform: Image preprocessing use wi2013.transform_384_train for images of 512x192 obtained by cropping
+                randomly and than scaling by 0.5, or wi2013.transform_test for variable sized images.
         :param target_transform: Ground truth preprocessing
         :param download: must be true for the data to download if missing
         :param output_class: This dataset supports different classes "writer":0-99,"sample":0-3 ,"script":0-1
