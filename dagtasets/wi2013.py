@@ -10,9 +10,9 @@ from StringIO import StringIO
 from torchvision import transforms
 
 
-transform_512_train = transforms.Compose([
-    transforms.RandomCrop([512,1024]),
-    transforms.Resize((256,512)),
+transform_384_train = transforms.Compose([
+    transforms.RandomCrop([384,1024]),
+    transforms.Resize((192,512)),
     transforms.Grayscale(),
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -20,7 +20,7 @@ transform_512_train = transforms.Compose([
 
 transform_test = transforms.Compose([
     transforms.RandomCrop([384,1024]),
-    transforms.Resize((384,512)),
+    transforms.Resize((192,512)),
     transforms.Grayscale(),
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
@@ -56,10 +56,19 @@ class WI2013(data.Dataset):
 
 
     def __init__(self, root, train=True, transform=None, target_transform=None, download=False,output_class="writer"):
+        """Instanciates a pytorch dataset.
+
+        :param root: The directory were everything is stored.
+        :param train: Boolean, selects the data-partion and the default preprocessing
+        :param transform: Image preprocessing
+        :param target_transform: Ground truth preprocessing
+        :param download: must be true for the data to download if missing
+        :param output_class: This dataset supports different classes "writer":0-99,"sample":0-3 ,"script":0-1
+        """
         assert output_class in ("writer","sample","script")
         if transform is None:
             if train:
-                transform = transform_512_train
+                transform = transform_384_train
             else:
                 transform = transform_test
         self.output_select= {"writer":lambda x:(x[0],x[1][0]-1),"sample":lambda x:(x[0],x[1][1]-1),"script":lambda x:(x[0],x[1][0]-1)}[output_class]
