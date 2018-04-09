@@ -7,12 +7,12 @@ pip install --user --upgrade numpy scikit-image scipy opencv-contrib-python
 
 The package depends in a recent torchvision:
 ```bash
-pip install --user git+https://github.com/pytorch/vision
+pip install --user --upgrade git+https://github.com/pytorch/vision
 ```
 
 Install current version:
 ```bash
-pip install --user git+https://github.com/anguelos/dagtasets
+pip install --user --upgrade git+https://github.com/anguelos/dagtasets
 ```
 
 ## Contents:

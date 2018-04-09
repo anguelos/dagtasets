@@ -14,6 +14,6 @@ setup(
     url='https://github.com/anguelos/dagtasets',
     package_data={'scenethecizer': ["data/backgrounds/paper_texture.jpg","data/corpora/01_the_ugly_duckling.txt"]},
     install_requires=[
-        'torch','torchvision','numpy','skimage','cv2','scipy','pango'
+        'torch','torchvision','numpy','scikit-image','opencv-contrib-python','scipy'
     ],
 )
