@@ -1,1 +1,1 @@
-from .synthecizer import Synthesizer,demo_ocr,fake_gaussian,demo_handwriting
+from .synthecizer import Synthesizer,demo_printed,fake_gaussian,demo_handwriting

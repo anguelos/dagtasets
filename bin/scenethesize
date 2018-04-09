@@ -2,12 +2,12 @@
 import sys;sys.path.append('./')
 import scenethecizer
 import lm_util
-from commands import getoutput as shell_exec
+import pangocairo
 
 google_fonts_url="https://github.com/google/fonts/archive/master.zip"
 
 def list_fonts():
-    fontnames=list(set([fnt.split(":")[1].strip() for fnt in shell_exec('fc-list').split("\n")]))
+    fontnames = [f.get_name() for f in pangocairo.cairo_font_map_get_default().list_families()]
     print("\n".join(fontnames))
     print("\nTotal fonts available: %d"%len(fontnames))
 
@@ -20,7 +20,7 @@ def main():
     if mode == "handwriting":
         scenethecizer.demo_handwriting(**switches)
     elif mode == "printed":
-        scenethecizer.demo_ocr(**switches)
+        scenethecizer.demo_printed(**switches)
     elif mode == "listfonts":
         list_fonts()
     else:

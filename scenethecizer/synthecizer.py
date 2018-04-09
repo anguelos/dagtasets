@@ -12,11 +12,9 @@ import scipy.interpolate as interpolate
 from matplotlib import pyplot as plt
 
 import lm_util
-#from scipy.ndimage.filters import gaussian_filter
 import random
 import skimage
 import skimage.filters
-import os
 
 import errno
 import os
@@ -119,7 +117,7 @@ def raw_interp2(X, Y, img):
     X = X.copy();
     X[X < 0] = 0;
     X[X >= img.shape[1] - 2] = img.shape[1] - 2;
-    Y = Y.copy();
+    Y = Y.shape[0]-Y;
     Y[Y < 0] = 0;
     Y[Y >= img.shape[0] - 2] = img.shape[0] - 2;
 
@@ -170,16 +168,6 @@ class PixelOperation(object):
         return self(img), ltrb
 
 
-def distort_document_noise_defaults(self,img,noise_sparsity=200,low_pass_ignore=.5,low_pass_sigma=[1,1],low_pass_noise=[]):
-    #return img/255.0
-    nb_pixels=img.shape[0]*img.shape[1]
-    low_noise_indexes=np.random.randint(0,nb_pixels*255,nb_pixels/noise_sparsity)
-    low_pass_sigma=(np.random.rand(2) * 100) + 3
-    high_pass_sigma = (np.random.rand(2)**2 * 2.25) + .75
-    high_pass_sigma = None
-    low_pass_range = 0.6
-    return self.distort_document_noise(img,low_noise_indexes=low_noise_indexes,low_pass_ignore=.32,low_pass_sigma=low_pass_sigma,high_pass_sigma=high_pass_sigma)
-
 
 class DocumentNoise(PixelOperation):
     def __init__(self,img_shape,noise_sparsity=500):
@@ -193,7 +181,6 @@ class DocumentNoise(PixelOperation):
         return [low_noise_indexes, .8, [1, 1], [1, 1], 0.6]
 
     def deterministic(self, img, parameter_list=[np.array([0], dtype='int32'),.5, [1, 1], [1, 1],0.6]):
-        #return img
         low_noise_indexes, low_pass_ignore, low_pass_sigma, high_pass_sigma, low_pass_range = parameter_list
         #img = img[:, :] / 255.0
         low_noise = np.zeros(img.shape[:2], dtype='float')
@@ -254,13 +241,6 @@ class ImageBackground(PixelOperation):
             else:
                 raise ValueError
         res = self.blend(img,bg)
-        #plt.subplot(1,3,1)
-        #plt.imshow(img)
-        #plt.subplot(1, 3, 2)
-        #plt.imshow(bg)
-        #plt.subplot(1, 3, 3)
-        #plt.imshow(res)
-        #plt.show()
         return res
 
     def __call__(self,img):
@@ -271,7 +251,6 @@ class ImageBackground(PixelOperation):
         fg_height = fg_shape[0]
         bg_width = bg.shape[1]
         bg_height = bg.shape[0]
-
         res=np.empty([fg_height, fg_width, 3])
         for left in range(0,fg_width,bg_width):
             right=min(left+bg_width,fg_width)
@@ -305,10 +284,11 @@ class GeometricOperation(object):
     def __call__(self, x_coordinate_list, y_coordinate_list):
         res_x_coordinate_list = []
         res_y_coordinate_list = []
+        params=self.generate_parameters()
         for k in range(len(x_coordinate_list)):
             X = x_coordinate_list[k].copy()
             Y = y_coordinate_list[k].copy()
-            X, Y = self.deterministic(X, Y, self.generate_parameters())
+            X, Y = self.deterministic(X, Y, params)
             res_x_coordinate_list.append(X)
             res_y_coordinate_list.append(Y)
         return res_x_coordinate_list, res_y_coordinate_list
@@ -319,19 +299,20 @@ class GeometricOperation(object):
         r = ltrb[:, 2]
         b = ltrb[:, 3]
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
-        in_x_coords = [X, l, l, r, r]
-        in_y_coords = [Y, t, b, t, b]
+        in_x_coords = [X, l, r]#[X, l, l, r, r]
+        in_y_coords = [Y, t, b]#[Y, t, b, t, b]
         out_x_coords, out_y_coords = self(in_x_coords,in_y_coords)
-        [X, x1, x2, x3, x4] = out_x_coords
-        [Y, y1, y2, y3, y4] = out_y_coords
+        #[X, x1, x2, x3, x4] = out_x_coords
+        [X, x1, x2] = out_x_coords
+        #[Y, y1, y2, y3, y4] = out_y_coords
+        [Y, y1, y2] = out_y_coords
         res_img = raw_interp2(X, Y, img)
         res_ltrp = np.empty(ltrb.shape)
-        res_ltrp[:, 0] = np.min([x1,x2,x3,x4], axis=0)
-        res_ltrp[:, 2] = np.max([x1, x2, x3, x4], axis=0)
-        res_ltrp[:, 1] = np.min([y1, y2, y3, y4], axis=0)
-        res_ltrp[:, 3] = np.max([y1, y2, y3, y4], axis=0)
+        res_ltrp[:, 0] = x1#np.min([x1,x2],axis=0)#,x3,x4], axis=0)
+        res_ltrp[:, 2] = x2##np.max([x1, x2],axis=0)#, x3, x4], axis=0)
+        res_ltrp[:, 1] = y1#np.min([y1, y2],axis=0)#, y3, y4], axis=0)
+        res_ltrp[:, 3] = y2#np.max([y1, y2],axis=0)#, y3, y4], axis=0)
         return res_img, res_ltrp
-
 
 
 class GeometricSequence(GeometricOperation):
@@ -345,7 +326,6 @@ class GeometricSequence(GeometricOperation):
         del parameters
         for transform in self.transform_sequences:
             X, Y = transform(X, Y)
-        print ["Res Seq Det", X.shape, Y.shape]
         return X,Y
 
 
@@ -362,9 +342,7 @@ class GeometricCliper(GeometricOperation):
         X[X > x_max] = x_max
         Y[Y < y_min] = y_min
         Y[Y > y_max] = y_max
-        print ["Res Clip Det",X.shape,Y.shape]
         return X, Y
-
 
 class GeometricTextlineWarper(GeometricOperation):
     def __init__(self,page_size, letter_height, num_points=8):
@@ -376,7 +354,8 @@ class GeometricTextlineWarper(GeometricOperation):
         xpoints = (np.random.rand(self.num_points) * np.array(
             [0] + [1] * (self.num_points - 1))).cumsum()
         xpoints = xpoints / xpoints.max()
-        ypoints = (np.random.rand(self.num_points) - .5) * np.array([0] + [10] * (self.num_points - 2) + [0])
+        ypoints = (np.random.standard_normal(self.num_points) ) * np.array([0] + [1] * (self.num_points - 2) + [0])
+        print "ypoints",ypoints
         return xpoints, ypoints
 
     def deterministic(self, X, Y, parameter_list):
@@ -384,16 +363,14 @@ class GeometricTextlineWarper(GeometricOperation):
         ticks = interpolate.splrep(xpoints, ypoints)
         all_x = np.linspace(0, 1, self.page_size[1])
         all_y = (interpolate.splev(all_x, ticks))
-        #print "X:",X
-        #print all_x.shape
-        #print all_y.shape
+        print ypoints
+        plt.plot(all_y);plt.show()
         if len(Y.shape)==2:
             Y = Y + all_y[None,:]
         elif len(Y.shape)==1:
             Y[:]=Y[:] + all_y[X[:]]
         else:
             raise ValueError
-        print ["Res LineWarper Det", X.shape, Y.shape]
         return X, Y
 
 
@@ -439,12 +416,11 @@ class GeometricRandomTranslator(GeometricOperation):
         return res_img, res_ltrp
 
 
-
 class Synthesizer(object):
     @staticmethod
     def get_system_fonts(only_home=True):
         if only_home:
-            # Fake Handwriting only return ["Byron"]
+            # TODO (anguelos) FIX THIS
             font_list = [f.split("/")[-1].split(".")[0] for f in
                          go('echo "$HOME/.fonts/"*.ttf').split()]
             font_list = [f.get_name() for f in
@@ -452,32 +428,30 @@ class Synthesizer(object):
             return font_list
         else:
             raise NotImplementedError()
-
-    # font_names=[f.split("/")[-1].split(".")[0] for f in go('echo "$HOME/.fonts/"*.ttf').split()] # TODO (anguelos) FIX THIS
     alignmets = [pango.ALIGN_LEFT, pango.ALIGN_RIGHT,
                  pango.ALIGN_CENTER]  # TODO(anguelos) fix textline stichers as they rely on alignment
 
     def render_page(self):
         fontname = self.current_font_name
-        font_height = self.current_letter_height
-        page_width = self.current_page_width
-        page_height = self.current_page_height
-        crop_edge_ltrb = self.current_crop_edge_ltrb
+        font_height = self.letter_height
+        text_width = self.page_width - (self.crop_edge_ltrb[0] + self.crop_edge_ltrb[2])
+        text_height = self.page_height - (self.crop_edge_ltrb[1] + self.crop_edge_ltrb[3])
+        crop_edge_ltrb = self.crop_edge_ltrb
         alignment = self.current_alignment
         caption = self.current_page_caption
-        canvas_width = page_width + crop_edge_ltrb[0] + crop_edge_ltrb[2]
-        canvas_height = page_height + crop_edge_ltrb[1] + crop_edge_ltrb[3]
+        canvas_width = self.page_width #+ crop_edge_ltrb[0] + crop_edge_ltrb[2]
+        canvas_height = self.page_height #+ crop_edge_ltrb[1] + crop_edge_ltrb[3]
         surf = cairo.ImageSurface(cairo.FORMAT_A8, canvas_width, canvas_height)
         context = cairo.Context(surf)
 
         context.translate(crop_edge_ltrb[0], crop_edge_ltrb[1])
         pangocairo_context = pangocairo.CairoContext(context)
         layout = pangocairo_context.create_layout()
-        layout.set_width(page_width * pango.SCALE)
+        layout.set_width(text_width * pango.SCALE)
         font = pango.FontDescription(fontname)
         font.set_absolute_size(font_height * pango.SCALE)
         layout.set_font_description(font)
-        print "FONT DESCRIPTION:", repr(font.get_family())
+        #print "FONT DESCRIPTION:", repr(font.get_family())
         layout.set_alignment(alignment)
         layout.set_wrap(pango.WRAP_WORD)
         layout.set_text(unicode(caption))
@@ -501,51 +475,8 @@ class Synthesizer(object):
         pass
 
     @classmethod
-    def create_ocr_synthecizer(cls, caption_reader, quantum="textlines",
-                               letter_height=30):
-        """Synthecizer constructor."""
-        synth = cls()
-        if quantum == "textlines":
-            synth.split_substrings = synth.split_textlines
-        elif quantum == "words":
-            synth.split_substrings = synth.split_words
-        elif quantum == "letters":
-            synth.split_substrings = synth.split_letters
-        else:
-            raise ValueError()
-        synth.aligment_probs = np.array([1.0, 0.0, 0.0])
-        synth.font_names = Synthesizer.get_system_fonts()
-        assert len(synth.font_names) > 0
-        synth.font_probs = np.ones(len(synth.font_names))
-
-        synth.letter_height_generator = lambda: letter_height
-        synth.page_width_generator = lambda: letter_height * 30
-        synth.page_height_generator = lambda: letter_height * 50
-        synth.crop_edge_ltrb_generator = lambda: (letter_height * 10,) * 4
-        font_list = Synthesizer.get_system_fonts()
-
-        def font_generator():
-            fnt_name = ' '
-            while ' ' in fnt_name:
-                fnt_name = font_list[np.random.randint(0, len(font_list))]
-            return fnt_name
-
-        synth.font_generator = font_generator
-
-        synth.alignment_generator = lambda: pango.ALIGN_LEFT
-
-        synth.caption_generator = caption_reader
-
-        synth.distort = synth.distort_document_synth
-        synth.generate_new_page()
-
-        return synth
-
-    @classmethod
-    def create_handwriten_synthecizer(cls, caption_reader, font_names=("Pacifico","Cookie","Gaegu","Sacramento","Tangerine","Allura"), quantum="textlines", letter_height=30,bg_img_list=[]):
+    def create_printed_synthecizer(cls, caption_reader, font_names=None, quantum="textlines", letter_height=30,bg_img_list=[]):
         """Synthecizer constructor.
-
-        ("Byron", "ALincolnFont", "Caligraf 1435", "Celine Dion Handwriting")
 
         """
 
@@ -562,15 +493,70 @@ class Synthesizer(object):
         synth.font_names = Synthesizer.get_system_fonts()
         assert len(synth.font_names) > 0
         synth.font_probs = np.ones(len(synth.font_names))
+        synth.letter_height = letter_height
+        synth.page_height = letter_height * 30
+        synth.page_width = letter_height * 50
+        synth.crop_edge_ltrb = np.array([letter_height * 5 ]*4)
+        image_size=[synth.page_height,synth.page_width]
+        available_fonts=Synthesizer.get_system_fonts()
+        if font_names is None:
+            font_list=list(available_fonts)
+        else:
+            font_list = list(
+                set(font_names).intersection(set(available_fonts)))
+        assert len(font_list)
 
-        synth.letter_height_generator = lambda: letter_height
-        synth.page_width_generator = lambda: letter_height * 30
-        synth.page_height_generator = lambda: letter_height * 50
-        synth.crop_edge_ltrb_generator = lambda: (letter_height * 10,) * 4
-        image_width = synth.crop_edge_ltrb_generator()[0] + synth.crop_edge_ltrb_generator()[2] + synth.page_width_generator()
-        image_height = synth.crop_edge_ltrb_generator()[1] + synth.crop_edge_ltrb_generator()[3] + synth.page_height_generator()
-        image_size=[image_height,image_width]
-        print font_names
+        def font_generator():
+            fnt_name = ' '
+            while ' ' in fnt_name:
+                fnt_name = font_list[np.random.randint(0, len(font_list))]
+            return fnt_name
+
+        synth.font_generator = font_generator
+        synth.alignment_generator = lambda: pango.ALIGN_LEFT
+        synth.caption_generator = caption_reader
+        synth.distort = synth.distort_printed_synth
+        synth.distort_operations = [ImageBackground(bg_img_list), DocumentNoise([synth.page_height,synth.page_width]),
+                                        GeometricTextlineWarper(page_size=image_size, letter_height=letter_height, num_points=8),
+                                        GeometricCliper(
+                                            (0, 0, synth.page_width, synth.page_height))]
+        synth.generate_new_page()
+        return synth
+
+    @classmethod
+    def create_handwriten_synthecizer(cls, caption_reader, font_names=("Pacifico","Cookie","Gaegu","Sacramento","Tangerine","Allura"), quantum="textlines", letter_height=30,bg_img_list=[]):
+        """Synthecizer constructor.
+
+        ("Byron", "ALincolnFont", "Caligraf 1435", "Celine Dion Handwriting")
+
+        """
+        synth = cls()
+        if quantum == "textlines":
+            synth.split_substrings = synth.split_textlines
+        elif quantum == "words":
+            synth.split_substrings = synth.split_words
+        elif quantum == "letters":
+            synth.split_substrings = synth.split_letters
+        else:
+            raise ValueError()
+        synth.aligment_probs = np.array([1.0, 0.0, 0.0])
+        synth.font_names = Synthesizer.get_system_fonts()
+        assert len(synth.font_names) > 0
+        synth.font_probs = np.ones(len(synth.font_names))
+
+        #synth.letter_height_generator = lambda: letter_height
+        #synth.page_width_generator = lambda: letter_height * 30
+        #synth.page_height_generator = lambda: letter_height * 50
+        #synth.crop_edge_ltrb_generator = lambda: (letter_height * 10,) * 4
+        synth.letter_height = letter_height
+        synth.page_height = letter_height * 30
+        synth.page_width = letter_height * 50
+        synth.crop_edge_ltrb = np.array([letter_height * 5 ]*4)
+
+        #image_width = synth.crop_edge_ltrb_generator()[0] + synth.crop_edge_ltrb_generator()[2] + synth.page_width_generator()
+        #image_height = synth.crop_edge_ltrb_generator()[1] + synth.crop_edge_ltrb_generator()[3] + synth.page_height_generator()
+        image_size=[synth.page_height,synth.page_width]
+        #print font_names
         available_fonts=Synthesizer.get_system_fonts()
         font_list = list(
             set(font_names).intersection(set(available_fonts)))
@@ -591,33 +577,27 @@ class Synthesizer(object):
 
         synth.distort = synth.distort_handwriten_synth
         #synth.distort_operations=[ImageBackground(),DocumentNoise(),GeometricSequence(GeometricTextlineWarper(image_size),GeometricCliper((0,0,image_width,image_height)))]
-        synth.distort_operations = [ImageBackground(bg_img_list), DocumentNoise([image_height,image_width]),
-
-                                        GeometricTextlineWarper(image_size),
+        synth.distort_operations = [ImageBackground(bg_img_list), DocumentNoise([synth.page_height,synth.page_width]),
+                                        GeometricTextlineWarper(page_size=image_size, letter_height=letter_height, num_points=8),
                                         GeometricCliper(
-                                            (0, 0, image_width, image_height))]
+                                            (0, 0, synth.page_width, synth.page_height))]
         synth.generate_new_page()
-        #self.current_img, self.current_graphene_ltrb = self.render_page()
         return synth
 
     def generate_new_page(self):
-        self.current_letter_height = self.letter_height_generator()
-        self.current_page_width = self.page_width_generator()
-        self.current_page_height = self.page_height_generator()
-        self.current_crop_edge_ltrb = self.crop_edge_ltrb_generator()
 
         self.current_font_name = self.font_generator()
         self.current_alignment = self.alignment_generator()
 
-        nb_chars = (self.current_page_width / self.current_letter_height) * (
-                    self.current_page_height / self.current_letter_height)
+        nb_chars = (self.page_width / self.letter_height) * (
+                    self.page_height / self.letter_height)
 
         self.current_page_caption = self.caption_generator.read_str(nb_chars)
 
         self.current_img, self.current_graphene_ltrb = self.render_page()
 
         inside_page = self.current_graphene_ltrb[:, 1] < (
-                    self.current_page_height + self.current_crop_edge_ltrb[1])
+                    self.page_height + self.crop_edge_ltrb[1])
         self.current_graphene_ltrb = self.current_graphene_ltrb[inside_page, :]
 
         self.current_page_caption = u''.join((np.array(
@@ -637,26 +617,21 @@ class Synthesizer(object):
 
         :return:
         """
-        for operation in self.page_operations:
-            pass
-        im, bboxes = self.current_img, self.current_graphene_ltrb
-        im = self.distort_document_noise_defaults(im)
-        im, bboxes = self.distort_textline_h_alignment_defaults(im, bboxes)
+        img, bboxes = self.current_img, self.current_graphene_ltrb
+        for operation in self.distort_operations:
+            img, bboxes = operation.apply_on_image(img, bboxes)
 
         self.current_graphene_ltrb = bboxes.copy()
-        self.current_img = im.copy()
+        self.current_img = img.copy()
 
         ranges = self.split_substrings(self.current_page_caption, bboxes)
-        # ranges = self.split_textlines(self.current_page_caption, bboxes)
-        # ranges = self.split_words(txt, bboxes)
-        # ranges = split_letters(txt, bboxes)
         roi_captions, bboxes = self.stich_ranges(self.current_page_caption,
                                                  ranges, bboxes)
-        tr_bboxes = self.distort_translate_bboxes_defaults(bboxes, im.shape[1],
-                                                           im.shape[0])
-        # crop_images(im, bboxes)
+        #tr_bboxes = self.distort_translate_bboxes_defaults(bboxes, img.shape[1],
+        #                                                   img.shape[0])
         self.current_roi_captions = roi_captions
-        self.current_roi_ltrb = tr_bboxes
+        self.current_roi_ltrb = bboxes
+
 
     def distort_handwriten_synth(self):
         """Takes a new pag  e and applies all defined handwriting distortions
@@ -687,10 +662,11 @@ class Synthesizer(object):
         plt.plot(self.current_roi_ltrb[:, [0, 0, 2, 2, 0]].T,
                  self.current_roi_ltrb[:, [1, 3, 3, 1, 1]].T)
         for n, l in enumerate(self.current_roi_ltrb):
-            print ("%5d : %s [L=%d,T=%d,R=%d,B=%d]" % (
-            n, self.current_roi_captions[n], self.current_roi_ltrb[n, 0],
-            self.current_roi_ltrb[n, 1],
-            self.current_roi_ltrb[n, 2], self.current_roi_ltrb[n, 3]))
+            #print ("%5d : %s [L=%d,T=%d,R=%d,B=%d]" % (
+            #n, self.current_roi_captions[n], self.current_roi_ltrb[n, 0],
+            #self.current_roi_ltrb[n, 1],
+            #self.current_roi_ltrb[n, 2], self.current_roi_ltrb[n, 3]))
+            pass
         plt.imshow(self.current_img, cmap='gray', vmin=0.0, vmax=1.0);
         plt.ylim((self.current_img.shape[0], 0));
         plt.xlim((0, self.current_img.shape[1]));
@@ -770,7 +746,7 @@ class Synthesizer(object):
             # while char is letter and and the bbox top is the same we are in the same word.
             while word_end < len(letter_chars_idx) and letter_chars_idx[
                 word_end] and char_ltrb[word_start, 2] < char_ltrb[word_end, 0]:
-                print letter_chars_idx[word_end], repr(caption[word_end])
+                #print letter_chars_idx[word_end], repr(caption[word_end])
                 word_end += 1
             word_index_ranges.append([word_start, word_end])
             word_start = word_end
@@ -804,8 +780,8 @@ class Synthesizer(object):
         """
         range_captions = np.empty(range_array.shape[0], dtype='object')
         range_ltrb = np.empty([range_array.shape[0], 4], dtype='int32')
-        print range_array
-        print char_ltrb
+        #print range_array
+        #print char_ltrb
 
         if self.split_letters== self.split_substrings:
             print "Letters"
@@ -843,7 +819,7 @@ class Synthesizer(object):
         return result_mask
 
     def crop_page_boxes(self, gt_str_list=None, dilate=.5):
-        dilate = int(dilate * self.current_letter_height)
+        dilate = int(dilate * self.letter_height)
         img, bboxes = self.current_img, self.current_roi_ltrb.astype("int32")
         if gt_str_list is None:
             gt_str_list = self.current_roi_captions
@@ -864,14 +840,14 @@ class Synthesizer(object):
         return img_list, caption_list
 
 
-def demo_ocr(corpus_txt_fname=None, quantum="textlines", plot_page=False,
+def demo_printed(corpus_txt_fname=None, quantum="textlines", plot_page=False,
              img_path_expr='/tmp/{}_{}.png', max_pages_count=1,
              letter_height=30):
     if corpus_txt_fname is None:
         corpus = lm_util.OcrCorpus.create_iliad_corpus(lang="eng")
     else:
         corpus = lm_util.OcrCorpus.create_file_corpus(corpus_txt_fname)
-    synth = Synthesizer.create_ocr_synthecizer(quantum=quantum,
+    synth = Synthesizer.create_printed_synthecizer(quantum=quantum,
                                                letter_height=letter_height,
                                                caption_reader=corpus)
 
