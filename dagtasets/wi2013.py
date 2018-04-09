@@ -11,8 +11,8 @@ from torchvision import transforms
 
 
 transform_384_train = transforms.Compose([
-    transforms.RandomCrop([384,1024],padding=1),
-    transforms.Resize((192,512)),
+    transforms.RandomCrop((1024,384), padding=1, pad_if_needed=True),
+    transforms.Resize((512,192)),
     transforms.Grayscale(),
     transforms.ToTensor(),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
