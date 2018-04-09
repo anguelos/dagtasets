@@ -6,14 +6,6 @@ from commands import getoutput as shell_exec
 
 google_fonts_url="https://github.com/google/fonts/archive/master.zip"
 
-
-def download_google_fonts():
-    tmp_dir="/tmp/font_download/"
-    sys.stderr.write("Downloading fonts. This might take a while.\n...\n")
-    cmd="mkdir -p "+tmp_dir+" && cd "+tmp_dir+" && wget -c "+google_fonts_url+" && unzip *.zip && echo 'SUCCESS'"
-    print cmd
-    print repr(shell_exec(cmd))
-
 def list_fonts():
     fontnames=list(set([fnt.split(":")[1].strip() for fnt in shell_exec('fc-list').split("\n")]))
     print("\n".join(fontnames))
