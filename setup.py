@@ -6,7 +6,7 @@ setup(
     name='dagtasets',
     version='0.1.1dev',
     packages=['dagtasets','scenethecizer','lm_util'],
-    scripts=['bin/synthecize'],
+    scripts=['bin/scenethecize'],
     license='Creative Commons Attribution-Noncommercial-Share Alike license',
     long_description=open('README.md').read(),
     author='Anguelos Nicolaou',
