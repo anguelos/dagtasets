@@ -4,7 +4,7 @@ from distutils.core import setup
 
 setup(
     name='dagtasets',
-    version='0.1.1dev',
+    version='0.1.2dev',
     packages=['dagtasets','scenethecizer','lm_util'],
     scripts=['bin/scenethesize'],
     license='Creative Commons Attribution-Noncommercial-Share Alike license',

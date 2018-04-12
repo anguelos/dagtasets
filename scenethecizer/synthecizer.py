@@ -373,7 +373,6 @@ class GeometricTextlineWarper(GeometricOperation):
             raise ValueError
         return X, Y
 
-
 class GeometricRandomTranslator(GeometricOperation):
     def __init__(self,x_sigma,x_mean,y_sigma,y_mean):
         self.x_sigma=x_sigma

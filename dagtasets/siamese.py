@@ -5,6 +5,21 @@ import random
 
 # TODO (anguelos) verify that this should not be a DataLoader
 class SiameseDs(data.Dataset):
+    """Makes a siamese dataset out of a classification dataset.
+
+    This class wraps an existing classification dataset and presents it as a
+    siamese dataset suited either for triplet loss or for contrastive loss.
+
+    :param triplets_per_sample: The triplets are constructed
+    :param triplet: If true
+    """
+    def __init__(self, dataset, triplets_per_sample=1, triplet=True, same_pair_prob=1.):
+        self.triplet = triplet
+        # if same_pair_prob
+        self.same_pair_prob = same_pair_prob
+        self.dataset = dataset
+        self.create_triplets(dataset, triplets_per_sample)
+
     def create_triplets(self, dataset, triplets_per_sample):
         self.triplet_idx_list = []
 
@@ -29,17 +44,15 @@ class SiameseDs(data.Dataset):
                 self.triplet_idx_list.append((ancor_id, near_id, far_id))
         return self.triplet_idx_list
 
-    def __init__(self, dataset, triplets_per_sample=1, triplet=True, same_pair_prob=1.):
-        self.triplet = triplet
-        # if same_pair_prob
-        self.same_pair_prob = same_pair_prob
-        self.dataset = dataset
-        self.create_triplets(dataset, triplets_per_sample)
-
     def __len__(self):
         return len(self.triplet_idx_list)
 
     def __getitem__(self, item):
+        """
+
+        :param item:
+        :return:
+        """
         if self.triplet:
             ancor_id, near_id, far_id = self.triplet_idx_list[item]
             return self.dataset[ancor_id][0], self.dataset[near_id][0], self.dataset[far_id][0]
