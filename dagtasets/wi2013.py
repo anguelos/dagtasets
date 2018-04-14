@@ -178,8 +178,3 @@ class WI2013(data.Dataset):
         tmp = '    Target Transforms (if any): '
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
-
-
-if __name__=="__main__":
-    trds = WI2013('./data/wi2013', train=True, transform=None, target_transform=None, download=True)
-    tstds = WI2013('./data/wi2013', train=False, transform=None, target_transform=None, download=True)

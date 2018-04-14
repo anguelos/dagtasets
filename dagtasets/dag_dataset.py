@@ -1,5 +1,5 @@
 import os
-import torch.util.data as data
+import torch.utils.data as data
 from skimage import io
 import torchvision.transforms as transforms
 
@@ -20,11 +20,11 @@ class DagDataset(data.Dataset):
 
         # Making transform always applicable
         if input_transform is None:
-            self.input_transform = lambda: x:x
+            self.input_transform = lambda x:x
         else:
             self.input_transform = input_transform
         if target_transform is None:
-            self.target_transform = lambda: x:x
+            self.target_transform = lambda x:x
         else:
             self.target_transform = target_transform
 

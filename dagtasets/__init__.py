@@ -4,3 +4,4 @@
 from dagtasets.siamese import SiameseDs
 from dagtasets.wi2013 import  WI2013
 from dagtasets.dag_dataset import DagDataset
+from dagtasets.hwi2017 import HWI2017
