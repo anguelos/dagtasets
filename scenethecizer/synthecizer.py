@@ -16,142 +16,13 @@ import random
 import skimage
 import skimage.filters
 
-import errno
+
 import os
 
+from dagtasets import mkdir_p,load_image_float,save_image_float
 
-def mkdir_p(path):
-    try:
-        os.makedirs(path)
-    except OSError as exc:  # Python >2.5
-        if exc.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
+from .util import *
 
-def load_image_float(fname,as_color=True):
-    if as_color:
-        img=cv2.cvtColor(cv2.imread(fname,cv2.IMREAD_COLOR),cv2.COLOR_BGR2RGB)
-    else:
-        img=cv2.imread(fname,cv2.IMREAD_GRAYSCALE)
-    return img/255.0
-
-
-def save_image_float(img,fname,as_color=True,mkdir=True):
-    img=(img*255).astype('uint8')
-    if as_color:
-        if len(img.shape)==2:
-            img=cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
-        else:
-            img=cv2.cvtColor(img,cv2.COLOR_RGB2BGR)
-    else:
-        if len(img.shape)==3:
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    cv2.imwrite(fname,255-img)
-
-
-def box_filter1d(img, box_sz, horizontal=True, iter=1):
-    # TODO (anguelos) add proper border options
-    assert box_sz % 2 == 0 and box_sz > 0
-    if horizontal:
-        tmp_img = np.empty([img.shape[0], img.shape[1] + box_sz])
-        tmp_img[:, box_sz / 2:-box_sz / 2] = img
-        tmp_img[:, :box_sz / 2] = 0
-        tmp_img[:, -box_sz / 2:] = 0
-
-        div_map = np.ones(tmp_img.shape) * box_sz
-        div_map[:, :box_sz] = np.ones([img.shape[0], box_sz]).cumsum(axis=1)
-        div_map[:, -box_sz:] = np.ones(
-            [img.shape[0], box_sz]).cumsum(axis=1)[:, ::-1]
-
-        for _ in range(iter):
-            new_img = np.empty(tmp_img.shape)
-            new_img[:, :box_sz / 2] = 0
-            new_img[:, -box_sz / 2:] = 0
-            cs = tmp_img.cumsum(axis=1)
-            new_img[:, box_sz / 2:-box_sz / 2] = (cs[:, box_sz:] -
-                                                  cs[:, :-box_sz])
-            new_img /= div_map
-            tmp_img = new_img
-        return new_img[:, box_sz / 2:-box_sz / 2]
-    else:
-        tmp_img = np.empty([img.shape[0] + box_sz, img.shape[1]]);
-        tmp_img[box_sz / 2:-box_sz / 2, :] = img;
-        tmp_img[:box_sz / 2, :] = 0;
-        tmp_img[-box_sz / 2:, :] = 0;
-
-        div_map = np.ones(tmp_img.shape) * box_sz
-        div_map[:box_sz, :] = np.ones([box_sz, img.shape[1]]).cumsum(axis=0)
-        div_map[-box_sz:, :] = np.ones([box_sz, img.shape[1]]).cumsum(axis=0)[
-                               ::-1, :]
-
-        for _ in range(iter):
-            new_img = np.empty(tmp_img.shape)
-            new_img[:box_sz / 2, :] = 0;
-            new_img[-box_sz / 2:, :] = 0;
-            cs = tmp_img.cumsum(axis=0)
-            new_img[box_sz / 2:-box_sz / 2, :] = (
-                        cs[box_sz:, :] - cs[:-box_sz, :])
-            new_img /= div_map
-            tmp_img = new_img
-        return new_img[box_sz / 2:-box_sz / 2, :]
-
-
-def fake_gaussian(img, vertical_horizontal_sigma, iter=3):
-    """Gaussian filter aproximation with integrall images.
-
-    :param img:
-    :param vertical_horizontal_sigma:
-    :param iter: An integer with the number of consecutive box filters used to approximate the gaussian kernel.
-    :return: an image of the same size as img.
-    """
-    sigma_vertical, sigma_horizontal = vertical_horizontal_sigma
-    h_blured = box_filter1d(img, sigma_horizontal, horizontal=True, iter=iter)
-    blured = box_filter1d(h_blured, sigma_vertical, horizontal=False, iter=iter)
-    return blured
-
-
-def raw_interp2(X, Y, img):
-    # TODO (anguelos) fix artifact Y instability seen on the spline interpolation
-    e = .001
-    X = X.copy();
-    X[X < 0] = 0;
-    X[X >= img.shape[1] - 2] = img.shape[1] - 2;
-    Y = Y.shape[0]-Y;
-    Y[Y < 0] = 0;
-    Y[Y >= img.shape[0] - 2] = img.shape[0] - 2;
-
-    left = np.floor(X)  # .astype('int32')
-    right_coef = X - left
-    left_coef = 1 - right_coef
-    right = left + 1  # .astype('int32')
-
-    top = np.floor(Y)  # .astype('int32')
-    bottom_coef = Y - top
-    top_coef = 1 - bottom_coef
-    bottom = top + 1  # .astype('int32')
-
-    left = left.astype("int32")
-    top = top.astype("int32")
-    right = right.astype("int32")
-    bottom = bottom.astype("int32")
-
-    res = np.empty(img.shape)
-    if len(img.shape)==2:
-        res[:] = img[top, left] * left_coef * top_coef + img[
-            top, right] * right_coef * top_coef + \
-                img[bottom, left] * left_coef * bottom_coef + img[
-                    bottom, right] * right_coef * bottom_coef
-    elif len(img.shape)==3:
-        #res=res.reshape(-1,3)
-        for c in range(3):
-            cimg=img[:,:,c]
-            res[:,:,c] = cimg[top, left] * left_coef * top_coef + cimg[top, right] * right_coef * top_coef + cimg[bottom, left] * left_coef * bottom_coef + cimg[bottom, right] * right_coef * bottom_coef
-        res=res.reshape(img.shape)
-
-    res[res < 0] = 0
-    res[res > 1] = 1
-    return res
 
 
 class PixelOperation(object):
@@ -355,7 +226,6 @@ class GeometricTextlineWarper(GeometricOperation):
             [0] + [1] * (self.num_points - 1))).cumsum()
         xpoints = xpoints / xpoints.max()
         ypoints = (np.random.standard_normal(self.num_points) ) * np.array([0] + [1] * (self.num_points - 2) + [0])
-        print "ypoints",ypoints
         return xpoints, ypoints
 
     def deterministic(self, X, Y, parameter_list):
@@ -363,8 +233,6 @@ class GeometricTextlineWarper(GeometricOperation):
         ticks = interpolate.splrep(xpoints, ypoints)
         all_x = np.linspace(0, 1, self.page_size[1])
         all_y = (interpolate.splev(all_x, ticks))
-        print ypoints
-        plt.plot(all_y);plt.show()
         if len(Y.shape)==2:
             Y = Y + all_y[None,:]
         elif len(Y.shape)==1:
@@ -407,12 +275,60 @@ class GeometricRandomTranslator(GeometricOperation):
         in_x_coords = [l,r]
         in_y_coords = [t, b]
         out_x_coords, out_y_coords = self(in_x_coords,in_y_coords)
-        res_ltrp = np.empty(ltrb.shape)
-        res_ltrp[:, 0] = out_x_coords[0]
-        res_ltrp[:, 2] = out_x_coords[1]
-        res_ltrp[:, 1] = out_y_coords[0]
-        res_ltrp[:, 3] = out_y_coords[1]
-        return res_img, res_ltrp
+        res_ltrb = np.empty(ltrb.shape)
+        res_ltrb[:, 0] = out_x_coords[0]
+        res_ltrb[:, 2] = out_x_coords[1]
+        res_ltrb[:, 1] = out_y_coords[0]
+        res_ltrb[:, 3] = out_y_coords[1]
+        return img, res_ltrb
+
+
+class GeometricBBoxDilator(GeometricOperation):
+    def __init__(self,x_y_dilations,crop_to_shape=None):
+        if isinstance(x_y_dilations,numbers.Number):
+            self.left_pad=x_y_dilations
+            self.right_pad=x_y_dilations
+            self.top_pad=x_y_dilations
+            self.bottom_pad=x_y_dilations
+        elif len(x_y_dilations) == 2 and isinstance(x_y_dilations[0],numbers.Number):
+            self.left_pad=x_y_dilations[0]
+            self.right_pad=x_y_dilations[0]
+            self.top_pad=x_y_dilations[1]
+            self.bottom_pad=x_y_dilations[1]
+        else:
+            self.left_pad=x_y_dilations[0][0]
+            self.right_pad=x_y_dilations[0][1]
+            self.top_pad=x_y_dilations[1][0]
+            self.bottom_pad=x_y_dilations[1][1]
+        self.crop_to_size=crop_to_size
+
+    def generate_parameters(self):
+        raise NotImplementedError
+
+    def deterministic(self, X, Y, parameter_list):
+        raise NotImplementedError
+
+    def __call__(self, x_coordinate_list, y_coordinate_list):
+        raise NotImplementedError
+
+    def apply_on_image(self, img, ltrb):
+        res_ltrb=ltrb+np.array([self.left_pad,self.top_pad,self.right_pad,self.bottom_pad])[None,:]
+        if self.crop_to_size:
+            left=res_ltrb[:,0]
+            right = res_ltrb[:, 2]
+            top=res_ltrb[:,1]
+            bottom = res_ltrb[:, 3]
+            left[left<0]= 0
+            left[left>=crop_to_shape[1]]=crop_to_shape[1]-1
+            right[right < 0] = 0;
+            right[right >= crop_to_shape[1]] = crop_to_shape[1] - 1
+
+            top[top<0]= 0
+            top[top>=crop_to_shape[0]]=crop_to_shape[0]-1
+            bottom[bottom < 0] = 0;
+            bottom[bottom >= crop_to_shape[0]] = crop_to_shape[0] - 1
+        return img, res_ltrb
+
 
 
 class Synthesizer(object):
@@ -431,44 +347,16 @@ class Synthesizer(object):
                  pango.ALIGN_CENTER]  # TODO(anguelos) fix textline stichers as they rely on alignment
 
     def render_page(self):
-        fontname = self.current_font_name
-        font_height = self.letter_height
-        text_width = self.page_width - (self.crop_edge_ltrb[0] + self.crop_edge_ltrb[2])
-        text_height = self.page_height - (self.crop_edge_ltrb[1] + self.crop_edge_ltrb[3])
-        crop_edge_ltrb = self.crop_edge_ltrb
-        alignment = self.current_alignment
-        caption = self.current_page_caption
-        canvas_width = self.page_width #+ crop_edge_ltrb[0] + crop_edge_ltrb[2]
-        canvas_height = self.page_height #+ crop_edge_ltrb[1] + crop_edge_ltrb[3]
-        surf = cairo.ImageSurface(cairo.FORMAT_A8, canvas_width, canvas_height)
-        context = cairo.Context(surf)
+        return render_text(caption=self.current_page_caption,
+                            fontname=self.current_font_name,
+                            font_height=self.letter_height,
+                            image_width=self.page_width,
+                            image_height=self.page_height,
+                            crop_edge_ltrb=self.crop_edge_ltrb,
+                            alignment=self.current_alignment,
+                           crop_for_height=True
+                           )
 
-        context.translate(crop_edge_ltrb[0], crop_edge_ltrb[1])
-        pangocairo_context = pangocairo.CairoContext(context)
-        layout = pangocairo_context.create_layout()
-        layout.set_width(text_width * pango.SCALE)
-        font = pango.FontDescription(fontname)
-        font.set_absolute_size(font_height * pango.SCALE)
-        layout.set_font_description(font)
-        #print "FONT DESCRIPTION:", repr(font.get_family())
-        layout.set_alignment(alignment)
-        layout.set_wrap(pango.WRAP_WORD)
-        layout.set_text(unicode(caption))
-        context.set_source_rgb(1, 0, 1.0)
-        pangocairo_context.update_layout(layout)
-        pangocairo_context.show_layout(layout)
-        # pangocairo_context.paint()
-        buf = surf.get_data()
-        np_img = np.frombuffer(buf, np.uint8).reshape(
-            [canvas_height, canvas_width])
-        char_ltwh = np.array(
-            [layout.index_to_pos(k) for k in range(len(caption))]) / pango.SCALE
-        char_ltrb = char_ltwh.copy() + 1
-        char_ltrb[:, 2:] = char_ltwh[:, 2:] + (
-                    char_ltwh[:, :2] - 2)  # guaranties no overlaps
-        char_ltrb[:, [0, 2]] += (crop_edge_ltrb[0])
-        char_ltrb[:, [1, 3]] += (crop_edge_ltrb[1])
-        return 1-(np_img/255.0), char_ltrb
 
     def __init__(self):  # , caption_fname=None):
         pass
@@ -543,19 +431,13 @@ class Synthesizer(object):
         assert len(synth.font_names) > 0
         synth.font_probs = np.ones(len(synth.font_names))
 
-        #synth.letter_height_generator = lambda: letter_height
-        #synth.page_width_generator = lambda: letter_height * 30
-        #synth.page_height_generator = lambda: letter_height * 50
-        #synth.crop_edge_ltrb_generator = lambda: (letter_height * 10,) * 4
         synth.letter_height = letter_height
-        synth.page_height = letter_height * 30
-        synth.page_width = letter_height * 50
+        synth.page_height = letter_height * 50
+        synth.page_width = letter_height * 40
         synth.crop_edge_ltrb = np.array([letter_height * 5 ]*4)
 
-        #image_width = synth.crop_edge_ltrb_generator()[0] + synth.crop_edge_ltrb_generator()[2] + synth.page_width_generator()
-        #image_height = synth.crop_edge_ltrb_generator()[1] + synth.crop_edge_ltrb_generator()[3] + synth.page_height_generator()
         image_size=[synth.page_height,synth.page_width]
-        #print font_names
+
         available_fonts=Synthesizer.get_system_fonts()
         font_list = list(
             set(font_names).intersection(set(available_fonts)))
@@ -660,12 +542,6 @@ class Synthesizer(object):
         """
         plt.plot(self.current_roi_ltrb[:, [0, 0, 2, 2, 0]].T,
                  self.current_roi_ltrb[:, [1, 3, 3, 1, 1]].T)
-        for n, l in enumerate(self.current_roi_ltrb):
-            #print ("%5d : %s [L=%d,T=%d,R=%d,B=%d]" % (
-            #n, self.current_roi_captions[n], self.current_roi_ltrb[n, 0],
-            #self.current_roi_ltrb[n, 1],
-            #self.current_roi_ltrb[n, 2], self.current_roi_ltrb[n, 3]))
-            pass
         plt.imshow(self.current_img, cmap='gray', vmin=0.0, vmax=1.0);
         plt.ylim((self.current_img.shape[0], 0));
         plt.xlim((0, self.current_img.shape[1]));
@@ -695,7 +571,6 @@ class Synthesizer(object):
         :return:
         """
         visible_chars_idx = self.get_visible_idx(caption)
-        # print visible_chars_idx
         line_start = 0
         texline_index_ranges = []
         while line_start < len(visible_chars_idx):
@@ -720,8 +595,6 @@ class Synthesizer(object):
             while line_start < len(visible_chars_idx) and not visible_chars_idx[
                 line_start]:
                 line_start += 1
-        # print texline_index_ranges
-        # sys.exit()
         res = np.array(texline_index_ranges, dtype='int32')
         res = res[res[:,0]<res[:,1]] # TODO(anguelos) this should not be necessary
         return res
@@ -745,7 +618,6 @@ class Synthesizer(object):
             # while char is letter and and the bbox top is the same we are in the same word.
             while word_end < len(letter_chars_idx) and letter_chars_idx[
                 word_end] and char_ltrb[word_start, 2] < char_ltrb[word_end, 0]:
-                #print letter_chars_idx[word_end], repr(caption[word_end])
                 word_end += 1
             word_index_ranges.append([word_start, word_end])
             word_start = word_end
@@ -779,8 +651,6 @@ class Synthesizer(object):
         """
         range_captions = np.empty(range_array.shape[0], dtype='object')
         range_ltrb = np.empty([range_array.shape[0], 4], dtype='int32')
-        #print range_array
-        #print char_ltrb
 
         if self.split_letters== self.split_substrings:
             print "Letters"
@@ -838,6 +708,25 @@ class Synthesizer(object):
             caption_list.append(gt_str_list[n])
         return img_list, caption_list
 
+    def save_end2end_gt(self,image_fname,gt_fname,gt_accumulate_fname,rr2013_format=False):
+        save_image_float(self.current_img,image_fname)
+        string_table=[]
+        ltrb=self.current_roi_ltrb.tolist()
+        for k in range(ltrb.shape[0]):
+            string_table.append([str(col) for col in ltrb[k]+[repr(self.current_roi_captions[k])]])
+        if gt_accumulate_fname is not None:
+            fname_string_table=[[repr(image_fname)]+str_line for str_line in string_table]
+            gt_accumulate_tbl="\n".join(["\t".join(line) for line in fname_string_table])
+            open(gt_accumulate_fname,"a")
+
+        if gt_fname is not None:
+            if rr2013_format:
+                separator=","
+            else:
+                separator="\t"
+            gt_tbl = "\n".join(
+                [separator.join(line) for line in fname_string_table])
+            open(gt_fname, "w").write(gt_tbl)
 
 def demo_printed(corpus_txt_fname=None, quantum="textlines", plot_page=False,
              img_path_expr='/tmp/{}_{}.png', max_pages_count=1,

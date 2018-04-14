@@ -27,7 +27,17 @@ def main():
         print("Mode "+mode+" unrecognized aborting.")
     sys.exit()
 
+def main_scene():
+    import matplotlib.pyplot as plt
+    from scenethecizer import ExternalSceneRenderer
+    renderer=ExternalSceneRenderer()
+    renderer.get_paste_regions()
+    img=renderer.paste_image("Hello")
+    #plt.imshow(img)
+    #plt.show()
+
 if __name__=="__main__":
     sys.path.append('./')
     print sys.path
     main()
+    #main_scene()

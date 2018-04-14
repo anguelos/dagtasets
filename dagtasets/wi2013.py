@@ -35,8 +35,6 @@ def read_rar_file(rarstream):
     return sample_list
 
 
-
-
 class WI2013(data.Dataset):
     """Contemporary Writer identification dataset
 
@@ -127,7 +125,7 @@ class WI2013(data.Dataset):
             os.path.exists(os.path.join(self.root, self.processed_folder, self.test_file))
 
     def download(self):
-        """Download the MNIST data if it doesn't exist in processed_folder already."""
+        """Download the rar files data if it doesn't exist in processed_folder already."""
         from six.moves import urllib
         import rarfile
 
