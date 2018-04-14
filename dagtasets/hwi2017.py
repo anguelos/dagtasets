@@ -91,7 +91,7 @@ class HWI2017(data.Dataset):
 
     def __init__(self, root, train=True, transform=transform_color, target_transform=transform_target, download=False,
                  output_class="writer"):
-        self.root = root
+        self.root = os.path.expanduser(root)
         self.transform = transform
         self.target_transform = target_transform
         self.train = train  # training set or test set

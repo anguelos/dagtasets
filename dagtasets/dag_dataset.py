@@ -12,10 +12,10 @@ input_transform = transforms.Compose([
 
 class DagDataset(data.Dataset):
     def __init__(self,root_file,root_dir=None,in_ram=False,input_transform=input_transform,target_transform=None):
-        self.root_file = root_file
+        self.root_file = os.path.expanduser(root_file)
         if root_dir is None:
             root_dir = os.path.dirname(root_file)
-        self.root_dir = root_dir
+        self.root_dir = os.path.expanduser(root_dir)
         self.in_ram = in_ram
 
         # Making transform always applicable
