@@ -8,7 +8,7 @@ class Encoder(object):
         "json": lambda x: json.loads(x),
     }
 
-    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False):
+    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True):
         if loader == "":
             self.code_2_utf = code_2_utf
         else:
@@ -18,6 +18,22 @@ class Encoder(object):
         self.default_utf = u"."
         self.default_code = max(self.code_2_utf.keys())
         self.is_dictionary=is_dictionary
+        self.dict_is_encoder=dict_is_encoder
+
+    def __getitem__(self, item):
+        if isinstance(item, basestring):
+            return self.utf_2_code[item]
+        else: # shuold be int
+            return self.code_2_utf[item]
+
+    def __len__(self):
+        return len(self.utf_2_code[item])
+
+    def __contains__(self, item):
+        if isinstance(item, basestring):
+            return self.utf_2_code.contains(item)
+        else: # shuold be int
+            return self.code_2_utf.contains(item)
 
     def add_null(self, symbol=u"\u2205"):
         self.code_2_utf[max(self.code_2_utf.keys()) + 1] = symbol

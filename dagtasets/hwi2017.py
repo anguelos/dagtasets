@@ -17,7 +17,7 @@ import numpy as np
 from .util import resumable_download
 
 transform_color = transforms.Compose([
-    transforms.RandomCrop((1024,512), padding=1, pad_if_needed=True),
+    transforms.RandomCrop((256,512), padding=1, pad_if_needed=True),
     #transforms.Resize((512,192)),
     #transforms.Grayscale(),
     transforms.ToTensor(),
