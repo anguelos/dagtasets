@@ -131,7 +131,7 @@ def render_text(caption=np.array(list("Hello\nWorld")),fontname='times',font_hei
         #print "FONT DESCRIPTION:", repr(font.get_family())
         layout.set_alignment(alignment)
         layout.set_wrap(pango.WRAP_WORD)
-        layout.set_text(u" ".join(caption.tolist()))
+        layout.set_text(u"".join(caption.tolist()))
         context.set_source_rgb(1, 0, 1.0)
         pangocairo_context.update_layout(layout)
         pangocairo_context.show_layout(layout)
@@ -141,7 +141,6 @@ def render_text(caption=np.array(list("Hello\nWorld")),fontname='times',font_hei
             [canvas_height, canvas_width])
         char_ltwh = np.array(
             [layout.index_to_pos(k) for k in range(len(caption))]) / pango.SCALE
-        print char_ltwh.shape
         if crop_for_height and (char_ltwh[:,[1,3]].sum(axis=1)>text_height).all():
             inside_height= text_height >= char_ltwh[:, [1, 3]].sum(axis=1)
             if not inside_height.any():
