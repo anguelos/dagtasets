@@ -1,0 +1,10 @@
+import dagtasets
+import matplotlib.pyplot as plt
+
+if __name__ == "__main__":
+    ds = dagtasets.MjSynth("/home/anguelos/tmp/mjsynth", dagtasets.mjsynth_color, download=True)
+    print len(ds)
+    for k in range(10):
+        img, gt = ds[k]
+        plt.imshow(img.data[0, :, :], cmap="gray")
+        plt.show()
