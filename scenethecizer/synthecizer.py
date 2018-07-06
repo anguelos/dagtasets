@@ -499,11 +499,15 @@ class Synthesizer(object):
         :return:
         """
         img, bboxes = self.current_img, self.current_graphene_ltrb
+        gt_img = img.copy()
         for operation in self.distort_operations:
+            if isinstance(operation,GeometricOperation):
+                gt_img,_ = operation.apply_on_image(gt_img, bboxes)
             img, bboxes = operation.apply_on_image(img, bboxes)
 
         self.current_graphene_ltrb = bboxes.copy()
         self.current_img = img.copy()
+        self.gt_img = gt_img
 
         ranges = self.split_substrings(self.current_page_caption, bboxes)
         roi_captions, bboxes = self.stich_ranges(self.current_page_caption,
@@ -520,11 +524,16 @@ class Synthesizer(object):
         :return:
         """
         img, bboxes = self.current_img, self.current_graphene_ltrb
+        gt_img=img.copy()
         for operation in self.distort_operations:
+            if isinstance(operation,GeometricOperation):
+                gt_img,_ = operation.apply_on_image(gt_img, bboxes)
             img, bboxes = operation.apply_on_image(img, bboxes)
 
         self.current_graphene_ltrb = bboxes.copy()
         self.current_img = img.copy()
+        self.gt_img = gt_img
+        self.final_img=img.copy()
 
         ranges = self.split_substrings(self.current_page_caption, bboxes)
         roi_captions, bboxes = self.stich_ranges(self.current_page_caption,
@@ -800,6 +809,8 @@ def demo_handwriting(corpus_txt_fname=None, quantum="textlines",
     sample_counter = 0
     while True and img_path_expr:
         synth.generate_new_page()
+        save_image_float(synth.gt_img,img_path_expr.format("gt",page_counter))
+        save_image_float(synth.final_img, img_path_expr.format("clr", page_counter))
         if plot_page:
             synth.plot_current_page()
         gt_img, gt_captions = synth.crop_page_boxes()
