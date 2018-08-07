@@ -7,6 +7,7 @@ from commands import getoutput as go
 
 import cv2
 import numpy as np
+import glob
 import pango
 import scipy.interpolate as interpolate
 from matplotlib import pyplot as plt
@@ -26,17 +27,23 @@ from .util import *
 
 
 class PixelOperation(object):
+    def __init__(self):
+        self.parameters=self.generate_parameters()
+
     def generate_parameters(self):
         raise NotImplementedError
 
     def deterministic(self, img, parameter_list):
         raise NotImplemented
 
-    def __call__(self, img):
-        return self.deterministic(img,self.generate_parameters())
+    def __call__(self, img, update_state=True):
+        res=self.deterministic(img, self.parameters)
+        if update_state:
+            self.parameters=self.generate_parameters()
+        return res
 
-    def apply_on_image(self, img, ltrb):
-        return self(img), ltrb
+    def apply_on_image(self, img, ltrb, update_state=True):
+        return self(img, update_state   ), ltrb
 
 
 
@@ -45,6 +52,7 @@ class DocumentNoise(PixelOperation):
         self.img_shaep=img_shape
         self.nb_pixels=img_shape[0] * img_shape[1]
         self.noise_sparsity=noise_sparsity
+        super(DocumentNoise,self).__init__()
 
     def generate_parameters(self):
         low_noise_indexes = np.random.randint(0, self.nb_pixels * 255,
@@ -82,7 +90,6 @@ class ImageBackground(PixelOperation):
             for img_fname in image_fname_list:
                 bg_img=load_image_float(img_fname,as_color=True)
                 self.image_list.append(bg_img)
-
         if blend=="max":
             self.blend=self.blend_max
         elif blend=="min":
@@ -97,6 +104,7 @@ class ImageBackground(PixelOperation):
             self.resize_bg = self.resize_bg_scale
         else:
             raise ValueError
+        super(ImageBackground, self).__init__()  # The list must exist before parent constructor
 
     def generate_parameters(self):
         return [random.choice(self.image_list)]
@@ -114,8 +122,11 @@ class ImageBackground(PixelOperation):
         res = self.blend(img,bg)
         return res
 
-    def __call__(self,img):
-        return self.deterministic(img,self.generate_parameters())
+    def __call__(self,img, update_state=True):
+        res=self.deterministic(img,self.parameters)
+        if update_state:
+            self.parameters=self.generate_parameters()
+        return res
 
     def resize_bg_tile(self,bg,fg_shape):
         fg_width = fg_shape[1]
@@ -146,25 +157,30 @@ class ImageBackground(PixelOperation):
 
 
 class GeometricOperation(object):
+    def __init__(self):
+        self.parameters=self.generate_parameters()
+
     def generate_parameters(self):
         raise NotImplementedError
 
     def deterministic(self, X, Y, parameter_list):
         raise NotImplemented
 
-    def __call__(self, x_coordinate_list, y_coordinate_list):
+    def __call__(self, x_coordinate_list, y_coordinate_list, update_state=True):
         res_x_coordinate_list = []
         res_y_coordinate_list = []
-        params=self.generate_parameters()
+        #params=self.generate_parameters()
         for k in range(len(x_coordinate_list)):
             X = x_coordinate_list[k].copy()
             Y = y_coordinate_list[k].copy()
-            X, Y = self.deterministic(X, Y, params)
+            X, Y = self.deterministic(X, Y, self.parameters)
             res_x_coordinate_list.append(X)
             res_y_coordinate_list.append(Y)
+        if update_state:
+            self.parameters=self.generate_parameters()
         return res_x_coordinate_list, res_y_coordinate_list
 
-    def apply_on_image(self, img, ltrb):
+    def apply_on_image(self, img, ltrb, update_state=True):
         l = ltrb[:, 0]
         t = ltrb[:, 1]
         r = ltrb[:, 2]
@@ -172,7 +188,7 @@ class GeometricOperation(object):
         X, Y = np.meshgrid(np.arange(img.shape[1]), np.arange(img.shape[0]))
         in_x_coords = [X, l, r]#[X, l, l, r, r]
         in_y_coords = [Y, t, b]#[Y, t, b, t, b]
-        out_x_coords, out_y_coords = self(in_x_coords,in_y_coords)
+        out_x_coords, out_y_coords = self(in_x_coords,in_y_coords, update_state)
         #[X, x1, x2, x3, x4] = out_x_coords
         [X, x1, x2] = out_x_coords
         #[Y, y1, y2, y3, y4] = out_y_coords
@@ -191,6 +207,7 @@ class GeometricSequence(GeometricOperation):
         return None
 
     def __init__(self,*args):
+        super(GeometricSequence,self).__init__()
         self.transform_sequences=args
 
     def deterministic(self, X, Y,parameters):
@@ -203,6 +220,7 @@ class GeometricSequence(GeometricOperation):
 class GeometricCliper(GeometricOperation):
     def __init__(self,clip_ltrb):
         self.clip_ltrb=clip_ltrb
+        super(GeometricCliper, self).__init__()
 
     def generate_parameters(self):
         return self.clip_ltrb
@@ -220,15 +238,18 @@ class GeometricTextlineWarper(GeometricOperation):
         self.num_points=num_points
         self.page_size=page_size
         self.letter_height=letter_height
+        super(GeometricTextlineWarper, self).__init__()
 
     def generate_parameters(self):
         xpoints = (np.random.rand(self.num_points) * np.array(
             [0] + [1] * (self.num_points - 1))).cumsum()
         xpoints = xpoints / xpoints.max()
         ypoints = (np.random.standard_normal(self.num_points) ) * np.array([0] + [1] * (self.num_points - 2) + [0])
+        print "GENERATING",xpoints,ypoints
         return xpoints, ypoints
 
     def deterministic(self, X, Y, parameter_list):
+        print "APPLIED",parameter_list
         xpoints, ypoints = parameter_list
         ticks = interpolate.splrep(xpoints, ypoints)
         all_x = np.linspace(0, 1, self.page_size[1])
@@ -247,6 +268,7 @@ class GeometricRandomTranslator(GeometricOperation):
         self.x_mean=x_mean
         self.y_sigma=y_sigma
         self.y_mean=y_mean
+        super(GeometricRandomTranslator, self).__init__()
 
     def generate_parameters(self,point_shape):
         res_x = np.random.standard_normal(point_shape)*self.x_sigma + self.x_mean
@@ -256,7 +278,9 @@ class GeometricRandomTranslator(GeometricOperation):
     def deterministic(self, X, Y, parameter_list):
         return X+parameter_list[0],Y+parameter_list[1]
 
-    def __call__(self, x_coordinate_list, y_coordinate_list):
+    def __call__(self, x_coordinate_list, y_coordinate_list, update_state=True):
+        if update_state == False:
+            raise NotImplementedError()
         res_x_coordinate_list = []
         res_y_coordinate_list = []
         for k in range(len(x_coordinate_list)):
@@ -267,14 +291,14 @@ class GeometricRandomTranslator(GeometricOperation):
             res_y_coordinate_list.append(Y)
         return res_x_coordinate_list, res_y_coordinate_list
 
-    def apply_on_image(self, img, ltrb):
+    def apply_on_image(self, img, ltrb, update_state=True):
         l = ltrb[:, 0]
         t = ltrb[:, 1]
         r = ltrb[:, 2]
         b = ltrb[:, 3]
         in_x_coords = [l,r]
         in_y_coords = [t, b]
-        out_x_coords, out_y_coords = self(in_x_coords,in_y_coords)
+        out_x_coords, out_y_coords = self(in_x_coords,in_y_coords, update_state=update_state)
         res_ltrb = np.empty(ltrb.shape)
         res_ltrb[:, 0] = out_x_coords[0]
         res_ltrb[:, 2] = out_x_coords[1]
@@ -301,6 +325,7 @@ class GeometricBBoxDilator(GeometricOperation):
             self.top_pad=x_y_dilations[1][0]
             self.bottom_pad=x_y_dilations[1][1]
         self.crop_to_size=crop_to_size
+        super(GeometricBBoxDilator, self).__init__()
 
     def generate_parameters(self):
         raise NotImplementedError
@@ -308,10 +333,10 @@ class GeometricBBoxDilator(GeometricOperation):
     def deterministic(self, X, Y, parameter_list):
         raise NotImplementedError
 
-    def __call__(self, x_coordinate_list, y_coordinate_list):
+    def __call__(self, x_coordinate_list, y_coordinate_list, update_state=True):
         raise NotImplementedError
 
-    def apply_on_image(self, img, ltrb):
+    def apply_on_image(self, img, ltrb, update_state=True):
         res_ltrb=ltrb+np.array([self.left_pad,self.top_pad,self.right_pad,self.bottom_pad])[None,:]
         if self.crop_to_size:
             left=res_ltrb[:,0]
@@ -346,7 +371,7 @@ class Synthesizer(object):
     alignmets = [pango.ALIGN_LEFT, pango.ALIGN_RIGHT,
                  pango.ALIGN_CENTER]  # TODO(anguelos) fix textline stichers as they rely on alignment
 
-    def render_page(self):
+    def     render_page(self):
         return render_text(caption=self.current_page_caption,
                             fontname=self.current_font_name,
                             font_height=self.letter_height,
@@ -502,8 +527,10 @@ class Synthesizer(object):
         gt_img = img.copy()
         for operation in self.distort_operations:
             if isinstance(operation,GeometricOperation):
-                gt_img,_ = operation.apply_on_image(gt_img, bboxes)
+                print "BEFORE GT:"
+                gt_img,_ = operation.apply_on_image(gt_img, bboxes,update_state=False)
             img, bboxes = operation.apply_on_image(img, bboxes)
+            print "AFTER IMG\n\n\n\n"
 
         self.current_graphene_ltrb = bboxes.copy()
         self.current_img = img.copy()
@@ -527,7 +554,7 @@ class Synthesizer(object):
         gt_img=img.copy()
         for operation in self.distort_operations:
             if isinstance(operation,GeometricOperation):
-                gt_img,_ = operation.apply_on_image(gt_img, bboxes)
+                gt_img,_ = operation.apply_on_image(gt_img, bboxes,update_state=False)
             img, bboxes = operation.apply_on_image(img, bboxes)
 
         self.current_graphene_ltrb = bboxes.copy()
@@ -781,7 +808,8 @@ def demo_printed(corpus_txt_fname=None, quantum="textlines", plot_page=False,
 
 def demo_handwriting(corpus_txt_fname=None, quantum="textlines",
                      plot_page=False, img_path_expr='/tmp/sample_ds/{}_{}.png',
-                     max_pages_count=1, letter_height=30):
+                     max_pages_count=1, letter_height=30,bg_img_pattern="./data/backgrounds/*.jpg",
+                     font_names=("Pacifico","Cookie","Gaegu","Sacramento","Tangerine","Allura")):
     src_dir, _ = os.path.split(__file__)
     if corpus_txt_fname is None:
         try:
@@ -794,8 +822,9 @@ def demo_handwriting(corpus_txt_fname=None, quantum="textlines",
     out_dir, _ = os.path.split(img_path_expr)
     mkdir_p(out_dir)
 
-    bg_paths = [os.path.join(src_dir,"data", "backgrounds","paper_texture.jpg")]
-    synth = Synthesizer.create_handwriten_synthecizer(quantum=quantum,letter_height=letter_height,caption_reader=corpus,bg_img_list=bg_paths)
+    bg_paths = glob.glob(bg_img_pattern)
+    print "BG:",bg_paths
+    synth = Synthesizer.create_handwriten_synthecizer(quantum=quantum,letter_height=letter_height,caption_reader=corpus,bg_img_list=bg_paths,font_names=font_names)
 
     page_counter = 0
     gt_expr = unicode(img_path_expr.split("/")[-1] + '\t"{}"\n')
@@ -811,6 +840,7 @@ def demo_handwriting(corpus_txt_fname=None, quantum="textlines",
         synth.generate_new_page()
         save_image_float(synth.gt_img,img_path_expr.format("gt",page_counter))
         save_image_float(synth.final_img, img_path_expr.format("clr", page_counter))
+
         if plot_page:
             synth.plot_current_page()
         gt_img, gt_captions = synth.crop_page_boxes()

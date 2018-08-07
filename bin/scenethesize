@@ -6,23 +6,38 @@ import pangocairo
 
 google_fonts_url="https://github.com/google/fonts/archive/master.zip"
 
-def list_fonts():
-    fontnames = [f.get_name() for f in pangocairo.cairo_font_map_get_default().list_families()]
-    print("\n".join(fontnames))
-    print("\nTotal fonts available: %d"%len(fontnames))
+def list_fonts(font_names=[],**kwargs):
+    system_fontnames = [f.get_name() for f in pangocairo.cairo_font_map_get_default().list_families()]
+    if font_names == []:
+        validated=[f+":"+str(scenethecizer.util.validate_font(f)) for f in system_fontnames]
+        print("\n".join(validated))
+        print("\nTotal fonts available: %d"%len(system_fontnames))
+    else:
+        search_fonts=font_names
+        print "Found:\n\t",
+        print "\n\t".join(list(set(search_fonts).intersection(set(system_fontnames))))
+        print "Not Found:\n\t",
+        print "\n\t".join(list(set(search_fonts)-(set(system_fontnames))))
 
 def main():
-    switches = {"quantum": "textlines", "letter_height": 30, 'plot_page': True, "max_pages_count": 0,
-                "img_path_expr": "/tmp/example_ds/{}_{}.png","mode":"handwriting"}
+    switches = {"quantum": "textlines", "letter_height": 30, 'plot_page': 1, "max_pages_count": 0,
+                "img_path_expr": "/tmp/example_ds/{}_{}.png","mode":"handwriting",
+                "bg_img_pattern":"./data/backgrounds/*.jpg","font_names":"Pacifico,Cookie,Gaegu,Sacramento,Tangerine,Allura"}
     switches, help_str = lm_util.get_arg_switches(switches, argv=None)
+    switches["font_names"]=switches["font_names"].split(",")
+    #if sorted(switches["font_names"]) in [sorted("Pacifico,Cookie,Gaegu,Sacramento,Tangerine,Allura".split(","))]:
+    #    switches["font_names"]=[]
+    #else:
+    #    print switches["font_names"]
     mode=switches['mode']
+
     del switches['mode']
     if mode == "handwriting":
         scenethecizer.demo_handwriting(**switches)
     elif mode == "printed":
         scenethecizer.demo_printed(**switches)
     elif mode == "listfonts":
-        list_fonts()
+        list_fonts(**switches)
     else:
         print("Mode "+mode+" unrecognized aborting.")
     sys.exit()
