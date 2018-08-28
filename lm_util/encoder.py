@@ -1,19 +1,19 @@
 import numpy as np
 import json
 import codecs
+import string
+
 
 class Encoder(object):
     loaders = {
         "tsv": (lambda x: dict([(int(l.split("\t")[0]), u"".join(l.split("\t")[1:])) for l in x.strip().split("\n")])),
         "json": lambda x: json.loads(x),
     }
-
     def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True):
         if loader == "":
             self.code_2_utf = code_2_utf
         else:
-            print loader
-            self.code_2_utf = EncoDeco.loaders[loader](loader_file_contents)
+            self.code_2_utf = Encoder.loaders[loader](loader_file_contents)
         self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
         self.default_utf = u"."
         self.default_code = max(self.code_2_utf.keys())
@@ -116,6 +116,14 @@ class Encoder(object):
 
     def get_ctc_decoder(self):
         return lambda x: self.decode_ctc(x)
+
+
+alphanumeric_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
+    [str(n) + '\t' + s for n, s in list(enumerate(u'\u2205' + string.letters + string.digits))]))
+
+
+letter_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
+    [str(n) + '\t' + s for n, s in list(enumerate(u'\u2205' + string.letters))]))
 
 
 def get_int_2_uc_dict(map_tsv, separator=None):
