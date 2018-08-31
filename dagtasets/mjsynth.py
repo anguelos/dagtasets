@@ -13,6 +13,9 @@ from PIL import Image
 from torchvision import transforms
 from .util import RandomPadAndNormalise, resumable_download, mkdir_p, extract
 import shutil
+import PIL
+from types import MethodType
+import lm_util
 
 # Composite Transform scaling the image as the original dataset was used.
 mjsynth_gray_scale = transforms.Compose([
@@ -60,7 +63,7 @@ mjsynth_color_pad = transforms.Compose([
 ])
 
 
-class MjSynth(data.Dataset):
+class _MjSynth(data.Dataset):
     """Sythetic word-image dataset.
 
     References:
@@ -97,6 +100,11 @@ class MjSynth(data.Dataset):
         expect.
     :param remove_archive(boolean): If True only the images will be stored
         and the tar.gz archive is erased once no longer needed.
+    :param encoder: If None the target of each sample is an integer.
+        Otherwise it must be an lm_util.Encoder and the target of each
+        sample will be a sequence of integers.
+
+    Example: ds = dagtasets.MjSynth("/tmp/",dagtasets.mjsynth_gray,download=True)
     """
     url = 'http://www.robots.ox.ac.uk/~vgg/data/text/mjsynth.tar.gz'
 
@@ -159,19 +167,18 @@ class MjSynth(data.Dataset):
         self.class_ids = np.array([int(line[1]) for line in lines])
         self.transcriptions = np.array(
             [unicode(line[0].split("_")[-1]) for line in lines])
-        samples_by_class = defaultdict(lambda: [])
-        for k in range(len(lines)):
-            samples_by_class[int(lines[k][1])].append(k)
-        class2idx = np.empty(max(samples_by_class.keys()) + 1, dtype=object)
-        for k, v in samples_by_class.items():
-            class2idx[k] = np.array(v)
-        self.class2idx = class2idx
+        #samples_by_class = defaultdict(lambda: [])
+        #for k in range(len(lines)):
+        #    samples_by_class[int(lines[k][1])].append(k)
+        #class2idx = np.empty(max(samples_by_class.keys()) + 1, dtype=object)
+        #for k, v in samples_by_class.items():
+        #    class2idx[k] = np.array(v)
+        #self.class2idx = class2idx
         self.filenames = np.array([line[0] for line in lines])
 
-    def __init__(self, root, transform, train=True, output="class",
+    def __init__(self, root, transform, train=True,
                  target_transform=None, download=False,
                  remove_archive=True):
-        assert output in ["class", "transcription"]
         self.root = os.path.expanduser(root)
         self.zip_folder = 'zips'
         self.img_folder = 'raw'
@@ -190,12 +197,63 @@ class MjSynth(data.Dataset):
                                    ' You can use download=True to download it')
         self._load_dir()
 
-        if output == "class":
-            self.target = self.class_ids
-        elif output == "transcription":
-            self.target = self.transcriptions
-        else:
-            raise Exception()
+
+    def __len__(self):
+        return self.class_ids.shape[0]
+
+
+
+
+class MjSynthWS(_MjSynth):
+    """Sythetic word-image dataset.
+
+    References:
+    @article{Jaderberg14c,
+      title={Synthetic Data and Artificial Neural Networks for Natural Scene
+      Text Recognition},
+      author={Jaderberg, M. and Simonyan, K. and Vedaldi, A. and Zisserman, A.},
+      journal={arXiv preprint arXiv:1406.2227},
+      year={2014}
+    }
+
+    @article{Jaderberg14d,
+      title={Reading Text in the Wild with Convolutional Neural Networks},
+      author={Jaderberg, M. and Simonyan, K. and Vedaldi, A. and Zisserman, A.},
+      journal={arXiv preprint arXiv:1412.1842},
+      year={2014}
+    }
+    :param root (string): Root directory of dataset where everything will be
+        stored.
+    :param transform (callable): A functor taking PIL images as input and
+        returning 3D pytorch tensors of dimensions
+        [channels x height x width].
+    :param train (bool, optional): If True, it will load samples from
+        annotations_train.txt, other wise annotations_val will be used.
+    :param output: A string that is either "class" or "transcription". If
+        "class", the target of each sample is an integer, otherwise the
+        target is a unicode string.
+    :param download (bool, optional): If true, downloads the dataset from
+        the internet and puts it in root directory. If dataset is already
+        downloaded at the same location, it is not downloaded again. The
+        total size of the Archive is ~9GB.
+    :param target_transform (callable, optional): A function/transform that
+        takes in the target and transforms it to what a loss function would
+        expect.
+    :param remove_archive(boolean): If True only the images will be stored
+        and the tar.gz archive is erased once no longer needed.
+    :param encoder: If None the target of each sample is an integer.
+        Otherwise it must be an lm_util.Encoder and the target of each
+        sample will be a sequence of integers.
+
+    Example: ds = dagtasets.MjSynth("/tmp/",dagtasets.mjsynth_gray,download=True)
+    """
+
+    def __init__(self, root, transform, train=True,
+                 target_transform=None, download=False,
+                 remove_archive=True):
+        super(MjSynthWS, self).__init__(root=root, transform=transform, train=train,
+                 target_transform=target_transform, download=download,
+                 remove_archive=remove_archive)
 
     def __getitem__(self, index):
         """
@@ -209,16 +267,108 @@ class MjSynth(data.Dataset):
 
         # doing this so that it is consistent with all other datasets
         # to return a PIL Image
-        image = Image.open(img_path)
+        try:
+            image = Image.open(img_path)
+        except:
+            image = PIL.Image.fromarray((np.random.random([400, 400, 3]) * 255).astype("uint8"))
+            print("Failed to convert ", img_path)
 
         if self.transform is not None:
-            image = self.transform(image)
+            try:
+                image = self.transform(image)
+            except:
+                image = PIL.Image.fromarray((np.random.random([400, 400, 3]) * 255).astype("uint8"))
+                image = self.transform(image)
+                print("Failed to convert ",img_path)
+
         _, filename = os.path.split(img_path)
         target = int(re.findall("^[0-9]+", filename)[0])
         if self.target_transform is not None:
             target = self.target_transform(target)
         return image, target
 
-    def __len__(self):
-        return self.class_ids.shape[0]
 
+class MjSynthTranscription(_MjSynth):
+    """Sythetic word-image dataset.
+
+    References:
+    @article{Jaderberg14c,
+      title={Synthetic Data and Artificial Neural Networks for Natural Scene
+      Text Recognition},
+      author={Jaderberg, M. and Simonyan, K. and Vedaldi, A. and Zisserman, A.},
+      journal={arXiv preprint arXiv:1406.2227},
+      year={2014}
+    }
+
+    @article{Jaderberg14d,
+      title={Reading Text in the Wild with Convolutional Neural Networks},
+      author={Jaderberg, M. and Simonyan, K. and Vedaldi, A. and Zisserman, A.},
+      journal={arXiv preprint arXiv:1412.1842},
+      year={2014}
+    }
+    :param root (string): Root directory of dataset where everything will be
+        stored.
+    :param transform (callable): A functor taking PIL images as input and
+        returning 3D pytorch tensors of dimensions
+        [channels x height x width].
+    :param train (bool, optional): If True, it will load samples from
+        annotations_train.txt, other wise annotations_val will be used.
+    :param output: A string that is either "class" or "transcription". If
+        "class", the target of each sample is an integer, otherwise the
+        target is a unicode string.
+    :param download (bool, optional): If true, downloads the dataset from
+        the internet and puts it in root directory. If dataset is already
+        downloaded at the same location, it is not downloaded again. The
+        total size of the Archive is ~9GB.
+    :param target_transform (callable, optional): A function/transform that
+        takes in the target and transforms it to what a loss function would
+        expect.
+    :param remove_archive(boolean): If True only the images will be stored
+        and the tar.gz archive is erased once no longer needed.
+    :param encoder: An lm_util.Encoder (having a .encode method) that maps
+        strings to integer sequences.
+
+    Example: ds = dagtasets.MjSynth("/tmp/",dagtasets.mjsynth_gray,download=True)
+    """
+
+    def __init__(self, root, transform, train=True,
+                 target_transform=None, download=False,
+                 remove_archive=True, encoder=lm_util.letter_encoder):
+        super(MjSynthTranscription, self).__init__(root=root, transform=transform, train=train,
+                                    target_transform=target_transform, download=download,
+                                    remove_archive=remove_archive)
+        self.encoder=encoder
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+        Returns:
+            tuple: (image, target) where target is a numpy vector of integers.
+        """
+        img_path = os.path.join(self.root, self.img_folder,
+                                self.filenames[index])
+
+        # doing this so that it is consistent with all other datasets
+        # to return a PIL Image
+        try:
+            image = Image.open(img_path)
+        except:
+            image = PIL.Image.fromarray((np.random.random([400, 400, 3]) * 255).astype("uint8"))
+            print("Failed to convert ", img_path)
+
+        if self.transform is not None:
+            try:
+                image = self.transform(image)
+            except:
+                image = PIL.Image.fromarray((np.random.random([400, 400, 3]) * 255).astype("uint8"))
+                image = self.transform(image)
+                print("Failed to convert ",img_path)
+
+        _, filename = os.path.split(img_path)
+        target = self.encoder.encode(filename.split("_")[1])
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+        else:
+            target = torch.IntTensor(target)
+        return image, target

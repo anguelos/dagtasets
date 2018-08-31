@@ -3,6 +3,8 @@ import os
 import errno
 import cv2
 import tarfile
+import torch
+import torch.nn.functional as F
 
 def extract(archive,root=None):
     if archive.endswith(".tar.gz"):
@@ -59,7 +61,7 @@ def save_image_float(img,fname,as_color=True,mkdir=True):
     else:
         if len(img.shape)==3:
             img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    cv2.imwrite(fname,255-img)
+    cv2.imwrite(fname,img)
 
 
 class RandomPadAndNormalise(object):
@@ -107,3 +109,55 @@ class RandomPadAndNormalise(object):
         tensor = tensor[:, :self.desired_height_width[0],
                  :self.desired_height_width[1]]
         return tensor
+
+
+class SequenceCollateFunctor(object):
+    def __init__(self,pad_captions,sort_by):
+        """Colation Functor for sequence DataLoader.
+
+        :param pad_captions: If True, captions will be a 2D Tensor padded with zeros.
+            If False, they are concatenated into a single vector as libcudnn expects them.
+        :param sort_by: One of ["none", "width", "height", "transcription"] if sequences
+            are to be packed, libcudnn expects the samples in decreassing order.
+        """
+        assert sort_by .lower() in ["none", "width", "height", "transcription"]
+        self.pad_captions=pad_captions
+        self.sort_by = sort_by
+    def __call__(self,batch_list):
+        """Colate Functor for sequence DataLoader.
+
+        :param batch_list: A list of tuples with a 3D tensor representing an image and
+            1D integer tensor representing the caption.
+        :return: A tuple with the 4D BCHW tensor, a 1D Tensor  with the widths, a 1D Tensor
+            with the heights,  a 1D or 2D Tensor  with the captions, and  a 1D Tensor
+            with the caption_lengths.
+        """
+        if self.sort_by=="width":
+            batch_list.sort(key=lambda x: x[0].size()[2], reverse=True)
+        elif self.sort_by=="height":
+            batch_list.sort(key=lambda x: x[0].size()[1], reverse=True)
+        elif self.sort_by=="transcription":
+            batch_list.sort(key=lambda x: len(x[1]), reverse=True)
+        captions, caption_lengths, img_list, heights, widths = zip(
+            *[(item[1], item[1].size(0), item[0], item[0].size(1), item[0].size(2)) for item in batch_list])
+        batch_width = max(widths)
+        batch_height = max(heights)
+        max_caption_length = max(caption_lengths)
+        pad_img = lambda x: F.pad(x, (0, batch_width - x.size(2), 0, batch_height - x.size(1), 0, 0))
+        batch = torch.stack([pad_img(img) for img in img_list])
+        if self.pad_captions:
+            pad_caption = lambda x: F.pad(x, (0, max_caption_length - x.size(0)))
+            captions = torch.stack([pad_caption(caption) for caption in captions])
+        else:
+            captions = torch.cat(captions)
+        return batch, torch.LongTensor(widths), torch.LongTensor(heights), captions, torch.LongTensor(caption_lengths)
+
+
+def get_variable_lenght_dataloader(dataset,batch_size=10,shuffle=True,num_workers=4,pad_captions=True,sort_by="width"):
+    collator=SequenceCollateFunctor(pad_captions=pad_captions,sort_by=sort_by)
+    data_loader = torch.utils.data.DataLoader(dataset=dataset,
+                                              batch_size=batch_size,
+                                              shuffle=shuffle,
+                                              num_workers=num_workers,
+                                              collate_fn=collator)
+    return data_loader
