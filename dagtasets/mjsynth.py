@@ -131,7 +131,7 @@ class _MjSynth(data.Dataset):
         if not self._check_exists():
             zip_dir = os.path.join(self.root, self.zip_folder)
             mkdir_p(zip_dir)
-            resumable_download(MjSynth.url,zip_dir)
+            resumable_download(_MjSynth.url,zip_dir)
             self._extract()
             self._set_exists()
         else:
