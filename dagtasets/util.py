@@ -83,8 +83,16 @@ class RandomPadAndNormalise(object):
 
     def __init__(self, width_height, standarise=True, e=1e-20):
         self.e = e
-        self.desired_height_width = width_height
+        self.desired_height_width = [width_height[1], width_height[0]]
         self.standarise = standarise
+        if width_height[1] <= 0: # dont pad width height
+            self.change_height = False
+        else:
+            self.change_height = True
+        if width_height[0] <= 0: # dont pad width height
+            self.change_width = False
+        else:
+            self.change_width = True
 
     def __call__(self, tensor):
         channels, height, width = tensor.shape
@@ -93,12 +101,12 @@ class RandomPadAndNormalise(object):
         # TODO: (anguelos) use mean and variance by channel.
         # mean=tensor.view([channels,height*width]).mean(dim=1)
         # std = tensor.view([channels, height * width]).std(dim=1)
-        if height < self.desired_height_width[0]:
+        if self.change_height and height < self.desired_height_width[0]:
             rnd_pads = torch.empty(
                 [channels, self.desired_height_width[0] - height,
                  width]).normal_(mean, std)
             tensor = torch.cat((tensor, rnd_pads), 1)
-        if width < self.desired_height_width[1]:
+        if self.change_width and width < self.desired_height_width[1]:
             rnd_pads = torch.empty([channels, self.desired_height_width[0],
                                     self.desired_height_width[
                                         1] - width]).normal_(mean, std)
@@ -106,13 +114,21 @@ class RandomPadAndNormalise(object):
         if self.standarise:
             tensor = (tensor - mean) / (std + self.e)
         # Performing cropping if need be.
-        tensor = tensor[:, :self.desired_height_width[0],
-                 :self.desired_height_width[1]]
+        if self.change_height and self.change_width:
+            tensor = tensor[:, :self.desired_height_width[0], :self.desired_height_width[1]]
+        elif self.change_width and not self.change_height:
+            tensor = tensor[:, :self.desired_height_width[0], :]
+        elif not self.change_width and self.change_height:
+            tensor = tensor[:, :, :self.desired_height_width[1]]
+        elif not self.change_width and not self.change_height:
+            tensor = tensor[:, :self.desired_height_width[0], :self.desired_height_width[1]]
+        else:
+            raise Exception() # Just because if are error prone.
         return tensor
 
 
 class SequenceCollateFunctor(object):
-    def __init__(self,pad_captions,sort_by):
+    def __init__(self,pad_captions,sort_by="none"):
         """Colation Functor for sequence DataLoader.
 
         :param pad_captions: If True, captions will be a 2D Tensor padded with zeros.

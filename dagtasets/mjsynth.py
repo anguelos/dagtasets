@@ -57,6 +57,15 @@ mjsynth_gray_pad = transforms.Compose([
 
 # Composite Transform padding the image with gaussian noise and
 # then standarizing pixel values.
+mjsynth_gray_pad_height = transforms.Compose([
+    transforms.Grayscale(),
+    transforms.ToTensor(),
+    RandomPadAndNormalise((32, -1))
+])
+
+
+# Composite Transform padding the image with gaussian noise and
+# then standarizing pixel values.
 mjsynth_color_pad = transforms.Compose([
     transforms.ToTensor(),
     RandomPadAndNormalise((32, 256))
@@ -248,7 +257,7 @@ class MjSynthWS(_MjSynth):
     Example: ds = dagtasets.MjSynth("/tmp/",dagtasets.mjsynth_gray,download=True)
     """
 
-    def __init__(self, root, transform, train=True,
+    def __init__(self, root, transform=mjsynth_gray_pad, train=True,
                  target_transform=None, download=False,
                  remove_archive=True):
         super(MjSynthWS, self).__init__(root=root, transform=transform, train=train,
@@ -331,7 +340,7 @@ class MjSynthTranscription(_MjSynth):
     Example: ds = dagtasets.MjSynth("/tmp/",dagtasets.mjsynth_gray,download=True)
     """
 
-    def __init__(self, root, transform, train=True,
+    def __init__(self, root, transform=mjsynth_gray_pad_height, train=True,
                  target_transform=None, download=False,
                  remove_archive=True, encoder=lm_util.letter_encoder):
         super(MjSynthTranscription, self).__init__(root=root, transform=transform, train=train,
