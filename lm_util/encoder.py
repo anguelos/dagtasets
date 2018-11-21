@@ -27,7 +27,7 @@ class Encoder(object):
             return self.code_2_utf[item]
 
     def __len__(self):
-        return len(self.utf_2_code[item])
+        return len(self.utf_2_code)
 
     def __contains__(self, item):
         if isinstance(item, basestring):
