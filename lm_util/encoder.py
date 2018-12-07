@@ -9,7 +9,7 @@ class Encoder(object):
         "tsv": (lambda x: dict([(int(l.split("\t")[0]), u"".join(l.split("\t")[1:])) for l in x.strip().split("\n")])),
         "json": lambda x: json.loads(x),
     }
-    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True):
+    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True,add_null=True):
         if loader == "":
             self.code_2_utf = code_2_utf
         else:
@@ -19,6 +19,9 @@ class Encoder(object):
         self.default_code = max(self.code_2_utf.keys())
         self.is_dictionary=is_dictionary
         self.dict_is_encoder=dict_is_encoder
+        self.contains_null = False
+        if add_null:
+            self.add_null()
 
     def __getitem__(self, item):
         if isinstance(item, basestring):
@@ -27,7 +30,7 @@ class Encoder(object):
             return self.code_2_utf[item]
 
     def __len__(self):
-        return len(self.utf_2_code)
+        return max(self.code_2_utf.keys())+1
 
     def __contains__(self, item):
         if isinstance(item, basestring):
@@ -36,8 +39,11 @@ class Encoder(object):
             return self.code_2_utf.contains(item)
 
     def add_null(self, symbol=u"\u2205"):
-        self.code_2_utf[max(self.code_2_utf.keys()) + 1] = symbol
+        self.null_idx = max(self.code_2_utf.keys()) + 1
+        self.code_2_utf[self.null_idx] = symbol
         self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
+
+        self.contains_null = True
 
     @property
     def alphabet_size(self):
@@ -74,7 +80,9 @@ class Encoder(object):
         else:
             return u"".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray.tolist()])
 
-    def decode_ctc(self, msg_nparray, null_val):
+    def decode_ctc(self, msg_nparray, null_val=-1):
+        if null_val<0:
+            null_val=self.null_idx
         keep_idx = np.zeros(msg_nparray.shape, dtype="bool")
         keep_idx[1:] = msg_nparray[1:] != msg_nparray[:-1]
         keep_idx = np.logical_and(keep_idx, msg_nparray != null_val)
