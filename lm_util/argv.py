@@ -1,4 +1,5 @@
 import sys
+import re
 
 def get_arg_switches(default_switches, argv=None):
     default_switches = dict(default_switches, **{"help": False})
