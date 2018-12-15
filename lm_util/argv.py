@@ -29,6 +29,13 @@ def get_arg_switches(default_switches, argv=None):
         k, repr(type(default_switches[k])), repr(default_switches[k]), repr(argv_switches[k]))
     help_str += "\nAborting.\n"
 
+    #replace {blabla} with argv_switches["balbla"] values
+    replacable_values=["{"+k+"}" for k in argv_switches.keys()]
+    while len(re.findall("{[a-z0-9A-Z_]+}",repr(argv_switches.values()))):
+        for k,v in argv_switches.items():
+            if isinstance(v,str):
+                argv_switches[k]=v.format(**argv_switches)
+
     if argv_switches["help"]:
         sys.stderr.write(help_str)
         sys.exit()
