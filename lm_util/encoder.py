@@ -84,7 +84,7 @@ class Encoder(object):
         if null_val<0:
             null_val=self.null_idx
         keep_idx = np.zeros(msg_nparray.shape, dtype="bool")
-        keep_idx[0] = msg_nparray[1:] != self.null_idx
+        keep_idx[0] = msg_nparray[0] != self.null_idx
         keep_idx[1:] = msg_nparray[1:] != msg_nparray[:-1]
         keep_idx = np.logical_and(keep_idx, msg_nparray != null_val)
         if self.is_dictionary:
