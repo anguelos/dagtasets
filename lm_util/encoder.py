@@ -35,7 +35,7 @@ class Encoder(object):
     def __contains__(self, item):
         if isinstance(item, basestring):
             return self.utf_2_code.contains(item)
-        else: # shuold be int
+        else: # should be int
             return self.code_2_utf.contains(item)
 
     def add_null(self, symbol=u"\u2205"):
