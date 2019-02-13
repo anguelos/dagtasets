@@ -45,6 +45,12 @@ class Encoder(object):
             self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
             self.contains_null = True
 
+    def get_tsv_string(self):
+        if self.contains_null:
+            return u"\n".join(["{}\t{}".format(k,v) for k,v in sorted(self.code_2_utf.items()) if k != self.null_idx])
+        else:
+            return u"\n".join(["{}\t{}".format(k, v) for k, v in sorted(self.code_2_utf.items())])
+
     @property
     def alphabet_size(self):
         return len(self.code_2_utf)
@@ -52,6 +58,13 @@ class Encoder(object):
     @classmethod
     def load_tsv(cls,fname,is_dictionary=False):
         tsv=codecs.open(fname,"r","utf-8").read().strip()
+        code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv.split("\n")])
+        encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary)
+        return encoder
+
+    @classmethod
+    def load_tsv_str(cls,tsv,is_dictionary=False):
+        tsv=tsv.read().strip()
         code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv.split("\n")])
         encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary)
         return encoder
