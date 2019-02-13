@@ -47,9 +47,9 @@ class Encoder(object):
 
     def get_tsv_string(self):
         if self.contains_null:
-            return u"\n".join(["{}\t{}".format(k,v) for k,v in sorted(self.code_2_utf.items()) if k != self.null_idx])
+            return u"\n".join([u"{}\t{}".format(k,v) for k,v in sorted(self.code_2_utf.items()) if k != self.null_idx])
         else:
-            return u"\n".join(["{}\t{}".format(k, v) for k, v in sorted(self.code_2_utf.items())])
+            return u"\n".join([u"{}\t{}".format(k, v) for k, v in sorted(self.code_2_utf.items())])
 
     @property
     def alphabet_size(self):
