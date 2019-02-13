@@ -39,11 +39,11 @@ class Encoder(object):
             return self.code_2_utf.contains(item)
 
     def add_null(self, symbol=u"\u2205"):
-        self.null_idx = max(self.code_2_utf.keys()) + 1
-        self.code_2_utf[self.null_idx] = symbol
-        self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
-
-        self.contains_null = True
+        if not self.contains_null:
+            self.null_idx = max(self.code_2_utf.keys()) + 1
+            self.code_2_utf[self.null_idx] = symbol
+            self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
+            self.contains_null = True
 
     @property
     def alphabet_size(self):
