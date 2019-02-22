@@ -2,7 +2,7 @@ import numpy as np
 import json
 import codecs
 import string
-
+import math
 
 class Encoder(object):
     loaders = {
@@ -140,6 +140,25 @@ class Encoder(object):
 
     def get_ctc_decoder(self):
         return lambda x: self.decode_ctc(x)
+
+    def __get_phoc_part(self,msg_nparray,partition,nb_partitions):
+        range_begin,range_end=msg_nparray.size*float(partition)/nb_partitions,msg_nparray.size*float(partition+1)/nb_partitions
+        range_begin_floor = int(math.floor(range_begin))
+        range_end_ceil = int(math.ceil(range_end))
+        coeffs=np.zeros(msg_nparray.shape)
+        coeffs[range_begin_floor+1:range_end_ceil-1]=1
+        coeffs[range_begin_floor] = 1.0-(range_begin-range_begin_floor)
+        coeffs[range_end_ceil-1]=1.0-(range_end_ceil-range_end)
+        return np.bincount(msg_nparray,minlength=len(self))
+
+    def get_phoc(self,msg,pyramid):
+        if not isinstance(msg,np.ndarray):#assume string-like
+            msg=self.encode(msg)
+        res=[]
+        for partition_count in pyramid:
+            for partition in range(partition_count):
+                res.append(self.__get_phoc_part(msg,partition,partition_count))
+        return np.concatenate(res,axis=0)
 
 
 alphanumeric_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
