@@ -9,7 +9,7 @@ class Encoder(object):
         "tsv": (lambda x: dict([(int(l.split("\t")[0]), u"".join(l.split("\t")[1:])) for l in x.strip().split("\n")])),
         "json": lambda x: json.loads(x),
     }
-    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True,add_null=True):
+    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True,add_null=True):#,add_seos=False):
         if loader == "":
             self.code_2_utf = code_2_utf
         else:
@@ -22,6 +22,9 @@ class Encoder(object):
         self.contains_null = False
         if add_null:
             self.add_null()
+        self.contains_seos = False
+        # if add_seos:
+        #     self.add_seos()
 
     def __getitem__(self, item):
         if isinstance(item, basestring):
@@ -44,6 +47,19 @@ class Encoder(object):
             self.code_2_utf[self.null_idx] = symbol
             self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
             self.contains_null = True
+
+    # def add_seos(self,symbols=("<SOS>","<EOS>")):
+    #     if not self.contains_seos:
+    #         self.sos_idx = max(self.code_2_utf.keys()) + 1
+    #         self.eos_idx = max(self.code_2_utf.keys()) + 2
+    #         self.code_2_utf[self.sos_idx] = symbols[0]
+    #         self.code_2_utf[self.eos_idx] = symbols[1]
+    #         self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
+    #         self.contains_seos = True
+    #     else:
+    #         self.code_2_utf[self.sos_idx] = symbols[0]
+    #         self.code_2_utf[self.eos_idx] = symbols[1]
+    #         self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
 
     def get_tsv_string(self):
         if self.contains_null:
@@ -149,7 +165,8 @@ class Encoder(object):
         coeffs[range_begin_floor+1:range_end_ceil-1]=1
         coeffs[range_begin_floor] = 1.0-(range_begin-range_begin_floor)
         coeffs[range_end_ceil-1]=1.0-(range_end_ceil-range_end)
-        return np.bincount(msg_nparray,minlength=len(self))
+        result = np.bincount(msg_nparray,coeffs,minlength=len(self))
+        return result
 
     def get_phoc(self,msg,pyramid):
         if not isinstance(msg,np.ndarray):#assume string-like
@@ -158,7 +175,9 @@ class Encoder(object):
         for partition_count in pyramid:
             for partition in range(partition_count):
                 res.append(self.__get_phoc_part(msg,partition,partition_count))
-        return np.concatenate(res,axis=0)
+        res = np.concatenate(res,axis=0)
+        res[res>1]=1.0
+        return res
 
 
 alphanumeric_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
