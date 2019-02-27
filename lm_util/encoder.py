@@ -72,10 +72,10 @@ class Encoder(object):
         return len(self.code_2_utf)
 
     @classmethod
-    def load_tsv(cls,fname,is_dictionary=False):
+    def load_tsv(cls,fname,is_dictionary=False,add_null=True):
         tsv=codecs.open(fname,"r","utf-8").read().strip()
         code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv.split("\n")])
-        encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary)
+        encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary,add_null=add_null)
         return encoder
 
     @classmethod
@@ -134,7 +134,7 @@ class Encoder(object):
 
     def decode_batch(self, msg_nparray, lengths=None):
         if lengths is None:
-            lengths = np.ones(msg_nparray.shape[0]) * msg_nparray.shape[1]
+            lengths = np.ones(msg_nparray.shape[0],dtype="int32") * msg_nparray.shape[1]
         res = []
         for k in range(msg_nparray.shape[0]):
             res.append(self.decode(msg_nparray[k, :lengths[k]]))
