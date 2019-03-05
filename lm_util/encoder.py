@@ -79,9 +79,9 @@ class Encoder(object):
         return encoder
 
     @classmethod
-    def load_tsv_str(cls,tsv,is_dictionary=False):
-        tsv=tsv.read().strip()
-        code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv.split("\n")])
+    def load_tsv_str(cls,tsv_str,is_dictionary=False):
+        tsv_str=tsv_str.strip()
+        code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv_str.split("\n")])
         encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary)
         return encoder
 
