@@ -59,21 +59,6 @@ def render_sequence(caption, labels=None, confidence=0, label_colors=((255, 0, 0
     return u"".join([rgbstr(caption[k],label_colors[labels[k]],bg[k]) for k in range(len(caption))])
 
 
-def render_prediction(caption, correct=None, confidence=0):
-    """Renders a string acording to
-
-    :param caption:
-    :param correct:
-    :param confidence:
-    :return:
-    """
-    if correct is None:
-        fg = ((255, 255, 255)) * len(caption)
-    else:
-        fg = [(0, 255, 0) if correct[k] else (255, 0, 0) for k in range(len(caption))]
-    try:
-        bg = [[int(255 * confidence[k]), int(255 * confidence[k]), int(255 * confidence[k])] for k in
-              range(len(caption))]
-    except TypeError: # confidence is not iterable
-        bg = [[int(255 * confidence), int(255 * confidence), int(255 * confidence)] for k in range(len(caption))]
-    return u"".join([rgbstr(caption[k],fg[k],bg[k]) for k in range(len(caption))])
+def render_prediction(caption, gt, confidence=0):
+    correct=[caption[k]==gt[k] for k in range(len(caption))]
+    return render_sequence(caption,correct,confidence)

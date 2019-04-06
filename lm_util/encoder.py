@@ -9,7 +9,7 @@ class Encoder(object):
         "tsv": (lambda x: dict([(int(l.split("\t")[0]), u"".join(l.split("\t")[1:])) for l in x.strip().split("\n")])),
         "json": lambda x: json.loads(x),
     }
-    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True,add_null=True):#,add_seos=False):
+    def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True,add_null=True):
         if loader == "":
             self.code_2_utf = code_2_utf
         else:
@@ -22,9 +22,6 @@ class Encoder(object):
         self.contains_null = False
         if add_null:
             self.add_null()
-        self.contains_seos = False
-        # if add_seos:
-        #     self.add_seos()
 
     def __getitem__(self, item):
         if isinstance(item, basestring):
@@ -47,19 +44,6 @@ class Encoder(object):
             self.code_2_utf[self.null_idx] = symbol
             self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
             self.contains_null = True
-
-    # def add_seos(self,symbols=("<SOS>","<EOS>")):
-    #     if not self.contains_seos:
-    #         self.sos_idx = max(self.code_2_utf.keys()) + 1
-    #         self.eos_idx = max(self.code_2_utf.keys()) + 2
-    #         self.code_2_utf[self.sos_idx] = symbols[0]
-    #         self.code_2_utf[self.eos_idx] = symbols[1]
-    #         self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
-    #         self.contains_seos = True
-    #     else:
-    #         self.code_2_utf[self.sos_idx] = symbols[0]
-    #         self.code_2_utf[self.eos_idx] = symbols[1]
-    #         self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
 
     def get_tsv_string(self):
         if self.contains_null:
