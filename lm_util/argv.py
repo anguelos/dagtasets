@@ -1,7 +1,25 @@
 import sys
 import re
+import os
 
-def get_arg_switches(default_switches, argv=None):
+def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True):
+    """Parse the argument list and create a dictionary with all parameters.
+
+    :param default_switches: A dictionary with parameters as keys and default values as elements. If the value is a
+        collection of two elements who's second element is a string.
+    :param argv: a list of strings which contains all parameters in the form '-PARAM_NAME=PARAM_VALUE'
+    :param use_enviromental_variables: If set to True, before parsing argv elements to override the default settings,
+        the default settings are first overridden by any assigned environmental variable.
+    :return: Dictionary that is the same as the default values with updated values.
+    """
+    if use_enviromental_variables:
+        for k,default_v in default_switches.items():
+            if k in os.environ.keys():
+                if hasattr(default_v, '__len__') and len(v) == 2 and isinstance(v[1], basestring):
+                    default_switches[k]=(type(default_v[0])(os.environ[k]),default_v[1])
+                else:
+                    default_switches[k] = type(default_v)(os.environ[k])
+
     new_default_switches={}
     switches_help = {"help":"Print help and exit."}
     for k,v in default_switches.items():
