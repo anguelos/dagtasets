@@ -2,8 +2,9 @@ import numpy as np
 import sys
 import json
 import urllib
+#import urllib.request, urllib.parse, urllib.error
 import xml.etree.ElementTree as ET
-import StringIO
+import io
 import codecs
 import re
 
@@ -23,18 +24,18 @@ class OcrCorpus(object):
             raise ValueError()
         book_str_list = []
         for book_no in range(1):#range(24):
-            xml_book = urllib.urlopen(book_url(book_no)).read()
+            xml_book = urllib.request.urlopen(book_url(book_no)).read()
             root = ET.fromstring(xml_book)
             book_text = ET.tostring(root, encoding='utf-8', method='text')
             book_text = book_text.replace("  ", "\n").replace('\r','')
             book_str_list.append(book_text.decode("utf-8"))
-        corpus = u"\n".join(book_str_list)
+        corpus = "\n".join(book_str_list)
         return corpus
 
     @staticmethod
     def corpus_to_alphabet_tsv(corpus_unicode_str):
         alphabet = list(set(re.sub("\s+"," ",corpus_unicode_str).replace('\r', '')))
-        return u"\n".join([unicode(int(n)) + u"\t" + s for n, s in enumerate(alphabet)])
+        return "\n".join([str(int(n)) + "\t" + s for n, s in enumerate(alphabet)])
 
     def __init__(self,*args):
         if len(args):
@@ -52,7 +53,7 @@ class OcrCorpus(object):
                 corpus.alphabet=list(alphabet)
             else: # the alphabet is missing some of the occuring characters
                 raise ValueError()
-        corpus.data_stream=StringIO.StringIO(corpus_str)
+        corpus.data_stream=io.StringIO(corpus_str)
         corpus.alphabet_to_num={v:n for n,v in enumerate(corpus.alphabet)}
         return corpus
 
@@ -68,7 +69,7 @@ class OcrCorpus(object):
                 corpus.alphabet=list(alphabet)
             else: # the alphabet is missing some of the occuring characters
                 raise ValueError()
-        corpus.data_stream=StringIO.StringIO(corpus_str)
+        corpus.data_stream=io.StringIO(corpus_str)
         corpus.alphabet_to_num={v:n for n,v in enumerate(corpus.alphabet)}
         return corpus
 
@@ -89,4 +90,4 @@ class OcrCorpus(object):
         return np.array([self.alphabet_to_num[c] for c in res_str],dtype='int32')
 
     def get_alphabet_tsv(self):
-        return u"\n".join([unicode(int(n)) + u"\t" + s for n, s in enumerate(self.alphabet)])
+        return "\n".join([str(int(n)) + "\t" + s for n, s in enumerate(self.alphabet)])

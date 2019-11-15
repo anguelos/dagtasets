@@ -10,7 +10,7 @@ def rgbstr(s, fg_rgb=(255, 255, 255), bg_rgb=(0,0,0) ):
     """
     fr, fg, fb = fg_rgb
     br , bg , bb = bg_rgb
-    return u"\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm%s\x1b[0m" % (fr, fg, fb, br, bg, bb, s)
+    return "\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm%s\x1b[0m" % (fr, fg, fb, br, bg, bb, s)
 
 
 def render_sequence(caption, labels=None, confidence=0, label_colors=((255, 0, 0),(0, 255, 0)),confidence_color=(255 ,255 ,255)):
@@ -56,7 +56,7 @@ def render_sequence(caption, labels=None, confidence=0, label_colors=((255, 0, 0
     bg = [[int(255 * confidence[k]), int(255 * confidence[k]), int(255 * confidence[k])] for k in
           range(len(caption))]
 
-    return u"".join([rgbstr(caption[k],label_colors[labels[k]],bg[k]) for k in range(len(caption))])
+    return "".join([rgbstr(caption[k],label_colors[labels[k]],bg[k]) for k in range(len(caption))])
 
 
 def render_prediction(caption, gt, confidence=0):

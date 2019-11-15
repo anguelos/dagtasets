@@ -6,7 +6,7 @@ import math
 
 class Encoder(object):
     loaders = {
-        "tsv": (lambda x: dict([(int(l.split("\t")[0]), u"".join(l.split("\t")[1:])) for l in x.strip().split("\n")])),
+        "tsv": (lambda x: dict([(int(l.split("\t")[0]), "".join(l.split("\t")[1:])) for l in x.strip().split("\n")])),
         "json": lambda x: json.loads(x),
     }
     def __init__(self, code_2_utf={}, loader_file_contents="", loader="",is_dictionary=False,dict_is_encoder=True,add_null=True):
@@ -14,8 +14,8 @@ class Encoder(object):
             self.code_2_utf = code_2_utf
         else:
             self.code_2_utf = Encoder.loaders[loader](loader_file_contents)
-        self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
-        self.default_utf = u"."
+        self.utf_2_code = {v: k for k, v in self.code_2_utf.items()}
+        self.default_utf = "."
         self.default_code = max(self.code_2_utf.keys())
         self.is_dictionary=is_dictionary
         self.dict_is_encoder=dict_is_encoder
@@ -24,7 +24,7 @@ class Encoder(object):
             self.add_null()
 
     def __getitem__(self, item):
-        if isinstance(item, basestring):
+        if isinstance(item, str):
             return self.utf_2_code[item]
         else: # shuold be int
             return self.code_2_utf[item]
@@ -33,23 +33,23 @@ class Encoder(object):
         return max(self.code_2_utf.keys())+1
 
     def __contains__(self, item):
-        if isinstance(item, basestring):
+        if isinstance(item, str):
             return self.utf_2_code.contains(item)
         else: # should be int
             return self.code_2_utf.contains(item)
 
-    def add_null(self, symbol=u"\u2205"):
+    def add_null(self, symbol="\u2205"):
         if not self.contains_null:
             self.null_idx = max(self.code_2_utf.keys()) + 1
             self.code_2_utf[self.null_idx] = symbol
-            self.utf_2_code = {v: k for k, v in self.code_2_utf.iteritems()}
+            self.utf_2_code = {v: k for k, v in self.code_2_utf.items()}
             self.contains_null = True
 
     def get_tsv_string(self):
         if self.contains_null:
-            return u"\n".join([u"{}\t{}".format(k,v) for k,v in sorted(self.code_2_utf.items()) if k != self.null_idx])
+            return "\n".join(["{}\t{}".format(k,v) for k,v in sorted(self.code_2_utf.items()) if k != self.null_idx])
         else:
-            return u"\n".join([u"{}\t{}".format(k, v) for k, v in sorted(self.code_2_utf.items())])
+            return "\n".join(["{}\t{}".format(k, v) for k, v in sorted(self.code_2_utf.items())])
 
     @property
     def alphabet_size(self):
@@ -58,14 +58,14 @@ class Encoder(object):
     @classmethod
     def load_tsv(cls,fname,is_dictionary=False,add_null=True):
         tsv=codecs.open(fname,"r","utf-8").read().strip()
-        code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv.split("\n")])
+        code_2_utf=dict([(int(l[:l.find("\t")]), "".join(l.split("\t")[1:])) for l in tsv.split("\n")])
         encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary,add_null=add_null)
         return encoder
 
     @classmethod
     def load_tsv_str(cls,tsv_str,is_dictionary=False):
         tsv_str=tsv_str.strip()
-        code_2_utf=dict([(int(l[:l.find("\t")]), u"".join(l.split("\t")[1:])) for l in tsv_str.split("\n")])
+        code_2_utf=dict([(int(l[:l.find("\t")]), "".join(l.split("\t")[1:])) for l in tsv_str.split("\n")])
         encoder=cls(code_2_utf=code_2_utf,is_dictionary=is_dictionary)
         return encoder
 
@@ -89,23 +89,23 @@ class Encoder(object):
 
     def decode(self, msg_nparray):
         if self.is_dictionary:
-            return u" ".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray.tolist()])
+            return " ".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray.tolist()])
         else:
-            return u"".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray.tolist()])
+            return "".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray.tolist()])
 
     def decode_ctc(self, msg_nparray, null_val=-1):
         if null_val<0:
             null_val=self.null_idx
         keep_idx = np.zeros(msg_nparray.shape, dtype="bool")
         if msg_nparray.size == 0:
-            return u""
+            return ""
         keep_idx[0] = msg_nparray[0] != self.null_idx
         keep_idx[1:] = msg_nparray[1:] != msg_nparray[:-1]
         keep_idx = np.logical_and(keep_idx, msg_nparray != null_val)
         if self.is_dictionary:
-            return u" ".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray[keep_idx].tolist()])
+            return " ".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray[keep_idx].tolist()])
         else:
-            return u"".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray[keep_idx].tolist()])
+            return "".join([self.code_2_utf.get(code, self.default_utf) for code in msg_nparray[keep_idx].tolist()])
 
     def encode_batch(self, msg_list):
         res_lengths = np.array([len(msg) for msg in msg_list], dtype="int64")
@@ -165,11 +165,11 @@ class Encoder(object):
 
 
 alphanumeric_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
-    [str(n) + '\t' + s for n, s in list(enumerate(u'\u2205' + string.letters + string.digits))]))
+    [str(n) + '\t' + s for n, s in list(enumerate('\u2205' + string.letters + string.digits))]))
 
 
 letter_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
-    [str(n) + '\t' + s for n, s in list(enumerate(u'\u2205' + string.letters))]))
+    [str(n) + '\t' + s for n, s in list(enumerate('\u2205' + string.letters))]))
 
 
 def get_int_2_uc_dict(map_tsv, separator=None):
@@ -179,7 +179,7 @@ def get_int_2_uc_dict(map_tsv, separator=None):
         map_tsv = map_tsv.strip()
     lines = [line.split("\t")[0] for line in map_tsv.split(separator)]
     try:
-        code2uc = {int(line[0]): unicode(line[1]) for line in lines}
+        code2uc = {int(line[0]): str(line[1]) for line in lines}
     except IndexError:
-        code2uc = {counter: unicode(line[0]) for counter, line in enumerate(lines)}
+        code2uc = {counter: str(line[0]) for counter, line in enumerate(lines)}
     return code2uc
