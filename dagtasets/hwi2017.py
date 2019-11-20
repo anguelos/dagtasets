@@ -1,14 +1,17 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 import torch.utils.data as data
 from PIL import Image
 import os
 import os.path
 import torch
 import re
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except:
+    from io import StringIO
 from torchvision import transforms
-from commands import getoutput as shell_stdout
+from dagtasets.util import shell_stdout
 from zipfile import ZipFile
 import glob
 from PIL import Image
@@ -147,10 +150,10 @@ class HWI2017(data.Dataset):
                 archive = ZipFile(zip_path)
                 dir_names=[n for n in archive.namelist() if n[-1]=="/"]
                 assert len(dir_names) == 1
-                print 'Extracting %s ... '%zip_path,
+                print('Extracting {} ... '.format(zip_path),end='')
                 archive.extractall(self.root+"/img/")
                 shell_stdout("mv "+self.root+"/img/"+dir_names[0]+" "+self.root+"/img/"+partition)
-                print 'done'
+                print('done')
                 self._set_exists(partition,True)
 
 

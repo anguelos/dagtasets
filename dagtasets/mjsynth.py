@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import torch
 
-import commands
 import os
 import re
 from collections import defaultdict

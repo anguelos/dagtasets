@@ -6,7 +6,10 @@ import os
 import os.path
 import errno
 import torch
-from StringIO import StringIO
+try:
+    from StringIO import StringIO
+except:
+    from io import StringIO
 from torchvision import transforms
 
 
