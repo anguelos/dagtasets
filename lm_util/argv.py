@@ -1,8 +1,9 @@
 import sys
 import re
 import os
+from collections import namedtuple
 
-def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True):
+def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True, return_named_tuple=False):
     """Parse the argument list and create a dictionary with all parameters.
 
     :param default_switches: A dictionary with parameters as keys and default values as elements. If the value is a
@@ -10,7 +11,8 @@ def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True
     :param argv: a list of strings which contains all parameters in the form '-PARAM_NAME=PARAM_VALUE'
     :param use_enviromental_variables: If set to True, before parsing argv elements to override the default settings,
         the default settings are first overridden by any assigned environmental variable.
-    :return: Dictionary that is the same as the default values with updated values.
+    :param return_named_tuple: If set to True, result will be a named tuple instead of a dictionary.
+    :return: Dictionary that is the same as the default values with updated values and the help string.
     """
     if use_enviromental_variables:
         for k,default_v in list(default_switches.items()):
@@ -72,5 +74,8 @@ def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True
         sys.stderr.write(help_str)
         sys.exit()
     del argv_switches["help"]
+
+    if return_named_tuple:
+        argv_switches=namedtuple("Parameters", argv_switches.keys())(*argv_switches.values())
 
     return argv_switches, help_str
