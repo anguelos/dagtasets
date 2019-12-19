@@ -2,6 +2,12 @@ import numpy as np
 import json
 import codecs
 import string
+
+try:
+    ascii_letters=string.letters
+except:
+    ascii_letters = string.ascii_letters
+
 import math
 
 class Encoder(object):
@@ -164,12 +170,13 @@ class Encoder(object):
         return res
 
 
+
 alphanumeric_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
-    [str(n) + '\t' + s for n, s in list(enumerate('\u2205' + string.letters + string.digits))]))
+    [str(n) + '\t' + s for n, s in list(enumerate('\u2205' + ascii_letters + string.digits))]))
 
 
 letter_encoder = Encoder(loader = "tsv", loader_file_contents = "\n".join(
-    [str(n) + '\t' + s for n, s in list(enumerate('\u2205' + string.letters))]))
+    [str(n) + '\t' + s for n, s in list(enumerate('\u2205' + ascii_letters))]))
 
 
 def get_int_2_uc_dict(map_tsv, separator=None):

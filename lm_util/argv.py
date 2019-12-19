@@ -22,18 +22,17 @@ def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True
                 else:
                     default_switches[k] = type(default_v)(os.environ[k])
 
-    new_default_switches={}
-    switches_help = {"help":"Print help and exit."}
-    for k,v in list(default_switches.items()):
-        if  hasattr(v, '__len__') and len(v)==2 and isinstance(v[1], str):
-            switches_help[k]=v[1]
-            new_default_switches[k]=v[0]
+    new_default_switches = {}
+    switches_help = {"help": "Print help and exit."}
+    for k, v in list(default_switches.items()):
+        if (not isinstance(v, str)) and hasattr(v, '__len__') and len(v) == 2 and isinstance(v[1], str):
+            switches_help[k] = v[1]
+            new_default_switches[k] = v[0]
         else:
             switches_help[k] = ""
             new_default_switches[k] = v
     default_switches=new_default_switches
     del new_default_switches
-
 
     default_switches = dict(default_switches, **{"help": False})
     if argv is None:
@@ -76,6 +75,6 @@ def get_arg_switches(default_switches, argv=None,use_enviromental_variables=True
     del argv_switches["help"]
 
     if return_named_tuple:
-        argv_switches=namedtuple("Parameters", argv_switches.keys())(*argv_switches.values())
+        argv_switches = namedtuple("Parameters", argv_switches.keys())(*argv_switches.values())
 
     return argv_switches, help_str
