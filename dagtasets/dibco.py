@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys
+import math
 from .util import resumable_download, mkdir_p, shell_stdout
 import torch
 import torchvision
@@ -12,12 +13,24 @@ except:
 
 
 class RandomCropTo(object):
-    def __init__(self,minimum_size=[512,512],pad_if_needed=True):
-        self.minimum_width, self.minimum_height = minimum_size
-        self.pad_if_needed=pad_if_needed
+    """Functor scaling and cropping pairs of tensor images.
 
-    def __call__(self,input,gt):
-        width,height,_=input.size()
+    """
+    def __init__(self,minimum_size=[512,512], pad_if_needed=True, scale_range=(1.0, 1.0)):
+        self.minimum_width, self.minimum_height = minimum_size
+        self.pad_if_needed = pad_if_needed
+        self.scale_range = scale_range
+
+    def __call__(self, input_img, gt):
+        width, height, _ = input_img.size()
+        if self.scale_range != (1.0, 1.0):
+            scale = self.scale_range[0]+float(torch.rand(1))*(self.scale_range[1] - self.scale_range[0])
+            width = int(math.round(width*scale))
+            height = int(math.round(height*scale))
+            input_img = torch.nn.functional.interpolate(input_img.unsqueeze(dim=0), (width, height), mode="bilinear")
+            gt = torch.nn.functional.interpolate(gt.unsqueeze(dim=0), (width, height), mode="nearest")
+            input_img, gt = torch.squeeze(input_img, 0), torch.squeeze(gt, 0)
+
         if (width<self.minimum_width or height<self.minimum_height) and self.pad_if_needed:
             if width<self.minimum_width:
                 x_needed = self.minimum_width - width
@@ -28,19 +41,17 @@ class RandomCropTo(object):
                 y_needed = self.minimum_height-height
             else:
                 y_needed = 0
-            input = torch.nn.functional.pad(input,(int(y_needed/2),int(y_needed-y_needed/2),
-                                            int(x_needed/2),int(x_needed-x_needed/2)))
+            input_img = torch.nn.functional.pad(input_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
+                                                            int(x_needed/2), int(x_needed-x_needed/2)))
             gt = torch.nn.functional.pad(gt, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                          int(x_needed / 2), int(x_needed - x_needed / 2)))
         max_left = max(self.minimum_width - width, 1)
         max_top = max(self.minimum_height - height, 1)
-        print("input_size", input.size())
-        sys.stdout.flush()
         left = torch.randint(low=0, high=max_left, size=[1])[0]
         top = torch.randint(low=0, high=max_top, size=[1])[0]
         right = left + self.minimum_width
         bottom = top + self.minimum_height
-        return input[:,left:right,top:bottom], gt[:,left:right,top:bottom]
+        return input_img[:, left:right, top:bottom], gt[:, left:right, top:bottom]
 
 transform_gray_train = torchvision.transforms.Compose([
     torchvision.transforms.Grayscale(),
@@ -118,7 +129,7 @@ class Dibco:
 
 
 
-    def __init__(self,partitions=["2009_HW","2009_P"],crop_sz=[512,512],root="/tmp/dibco",train=True):
+    def __init__(self,partitions=["2009_HW","2009_P"],crop_sz=[512,512],root="/tmp/dibco",train=True,scale_range=(1.0, 1.0)):
         if train:
             self.input_transform = transform_gray_train
             self.gt_transform = transform_gray_train
@@ -127,8 +138,8 @@ class Dibco:
             self.gt_transform = transform_gray_inference
         self.train=train
         self.root=root
-        if crop_sz is not None:
-            self.crop = RandomCropTo(crop_sz)
+        if crop_sz is not None or scale_range != (1.0, 1.0):
+            self.crop = RandomCropTo(crop_sz, scale_range=scale_range)
         else:
             self.crop = lambda x, y: (x, y)
         data = {}

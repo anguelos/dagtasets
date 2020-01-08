@@ -1,10 +1,16 @@
-from commands import getstatusoutput,getoutput as shell_stdout
+from __future__ import print_function
+
+try:
+    from commands import getoutput as shell_stdout
+except:
+    from subprocess import getoutput as shell_stdout
 import os
 import errno
 import cv2
 import tarfile
 import torch
 import torch.nn.functional as F
+
 
 def extract(archive,root=None):
     if archive.endswith(".tar.gz"):
@@ -37,9 +43,9 @@ def mkdir_p(path):
 def resumable_download(url,save_dir):
     mkdir_p(save_dir)
     download_cmd = 'wget --directory-prefix=%s -c %s' % (save_dir, url)
-    print "Downloading %s ... "%url,
+    print("Downloading {} ... ".format(url))
     shell_stdout(download_cmd)
-    print "done"
+    print("done")
     return os.path.join(save_dir,url.split("/")[-1])
 
 
