@@ -59,7 +59,7 @@ class RandomCropTo(object):
 
 
 dibco_transform_gray_train = torchvision.transforms.Compose([
-    torchvision.transforms.ColorJitter(brightness=.2, contrast=.2, saturation=.2, hue=.2),
+    #torchvision.transforms.ColorJitter(brightness=.2, contrast=.2, saturation=.2, hue=.2),
     torchvision.transforms.Grayscale(),
     torchvision.transforms.ToTensor(),
     lambda x: torch.cat([x, 1 - x])
@@ -82,6 +82,11 @@ dibco_transform_color_inference = torchvision.transforms.Compose([
 
 
 class Dibco:
+    """
+
+    Os dependencies: Other than python packages, unrar and arepack CLI tools must be installed.
+    In Ubuntu they can be installed with: sudo apt install unrar atool
+    """
     urls = {
         "2009_HW": ["https://users.iit.demokritos.gr/~bgat/DIBCO2009/benchmark/DIBC02009_Test_images-handwritten.rar",
                     "https://users.iit.demokritos.gr/~bgat/DIBCO2009/benchmark/DIBCO2009-GT-Test-images_handwritten.rar"],
@@ -182,9 +187,13 @@ class Dibco:
         data = {}
         for partition in partitions:
             for url in Dibco.urls[partition]:
-                resumable_download(url, root)
+                archive_fname = root + "/" + url.split("/")[-1]
+                if not os.path.isfile(archive_fname):
+                    resumable_download(url, root)
+                else:
+                    print(archive_fname," found in cache.")
                 if url.endswith(".7z"):
-                    lz_fname = root + "/" + url.split("/")[-1]
+                    lz_fname = archive_fname
                     zip_fname = lz_fname[:-2] + "zip"
                     if not os.path.isfile(zip_fname):
                         cmd = "arepack -e --format=zip {}".format(lz_fname)
