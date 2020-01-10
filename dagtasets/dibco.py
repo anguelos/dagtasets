@@ -198,8 +198,8 @@ class Dibco:
                     if not os.path.isfile(zip_fname):
                         cmd = "arepack -e --format=zip {}".format(lz_fname)
                         shell_stdout(cmd)
-                        os.stderr.write("Using arepack! make sure it is installed\n")
-                        os.stderr.flush()
+                        sys.stderr.write("Using arepack! make sure it is installed\n")
+                        sys.stderr.flush()
             if len(Dibco.urls[partition]) == 2:
                 if Dibco.urls[partition][0].endswith(".rar"):
                     input_rar = rarfile.RarFile(root + "/" + Dibco.urls[partition][0].split("/")[-1])
