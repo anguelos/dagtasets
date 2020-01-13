@@ -57,9 +57,9 @@ class RandomCropTo(object):
         right = left + self.minimum_width
         bottom = top + self.minimum_height
         #print("LTRB",left,top,right,bottom)
-        print(input_img.size(), gt.size())
+        #print(input_img.size(), gt.size())
         input_img, gt = input_img[:, left:right, top:bottom], gt[:, left:right, top:bottom]
-        print(input_img.size(), gt.size())
+        #print(input_img.size(), gt.size())
         return input_img, gt
 
 
