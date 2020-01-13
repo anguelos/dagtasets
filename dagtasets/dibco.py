@@ -36,12 +36,12 @@ class RandomCropTo(object):
             input_img, gt = torch.squeeze(input_img, 0), torch.squeeze(gt, 0)
         if (width < self.minimum_width or height < self.minimum_height) and self.pad_if_needed:
             if width < self.minimum_width:
-                x_needed = self.minimum_width - width
+                x_needed = 1+self.minimum_width - width
             else:
                 x_needed = 0
 
             if height < self.minimum_height:
-                y_needed = self.minimum_height - height
+                y_needed = 1+self.minimum_height - height
             else:
                 y_needed = 0
             input_img = torch.nn.functional.pad(input_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
@@ -57,8 +57,9 @@ class RandomCropTo(object):
         right = left + self.minimum_width
         bottom = top + self.minimum_height
         #print("LTRB",left,top,right,bottom)
+        print(input_img.size(), gt.size())
         input_img, gt = input_img[:, left:right, top:bottom], gt[:, left:right, top:bottom]
-        #print(input_img.size(), gt.size())
+        print(input_img.size(), gt.size())
         return input_img, gt
 
 
