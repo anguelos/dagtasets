@@ -26,8 +26,7 @@ class RandomCropTo(object):
         self.scale_range = scale_range
 
     def __call__(self, input_img, gt):
-        print(input_img.size(), gt.size())
-        width, height, _ = input_img.size()
+        _, width, height = input_img.size()
         if self.scale_range != (1.0, 1.0):
             scale = self.scale_range[0] + float(torch.rand(1)) * (self.scale_range[1] - self.scale_range[0])
             width = int(math.round(width * scale))
@@ -49,13 +48,17 @@ class RandomCropTo(object):
                                                             int(x_needed / 2), int(x_needed - x_needed / 2)))
             gt = torch.nn.functional.pad(gt, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                               int(x_needed / 2), int(x_needed - x_needed / 2)))
+        #print(width,height,input_img.size())
         max_left = max(width - self.minimum_width, 1)
         max_top = max(height - self.minimum_height, 1)
+        #print("Maxleft:",max_left,"   Maxtop:",max_top)
         left = torch.randint(low=0, high=max_left, size=[1])[0]
         top = torch.randint(low=0, high=max_top, size=[1])[0]
         right = left + self.minimum_width
         bottom = top + self.minimum_height
+        #print("LTRB",left,top,right,bottom)
         input_img, gt = input_img[:, left:right, top:bottom], gt[:, left:right, top:bottom]
+        #print(input_img.size(), gt.size())
         return input_img, gt
 
 
@@ -86,7 +89,7 @@ class Dibco:
     """
 
     Os dependencies: Other than python packages, unrar and arepack CLI tools must be installed.
-    In Ubuntu they can be installed with: sudo apt install unrar atool
+    In Ubuntu they can be installed with: sudo apt install unrar atool p7zip-full
     """
     urls = {
         "2009_HW": ["https://users.iit.demokritos.gr/~bgat/DIBCO2009/benchmark/DIBC02009_Test_images-handwritten.rar",
