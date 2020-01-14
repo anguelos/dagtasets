@@ -16,8 +16,8 @@ from io import BytesIO as FileReadWrapper
 
 
 class RandomPlasma(object):
-    def __init__(self,occurence_prob=.3, quantile_min=.05,quantile_max=.5, scale_factor=2.0,roughness_min=.1,
-                 roughness_max=.7,low_quantile_prob=.5,max_bg_range=.7):
+    def __init__(self,occurence_prob=.3, mask_gt=False, quantile_min=.05,quantile_max=.5, scale_factor=2.0,roughness_min=.1,
+                 roughness_max=.9,low_quantile_prob=.5,max_bg_range=.7):
         self.occurence_prob=occurence_prob
         self.scale_factor=scale_factor
         self.roughness_min=roughness_min
@@ -26,6 +26,7 @@ class RandomPlasma(object):
         self.quantile_max=quantile_max
         self.low_quantile_prob=low_quantile_prob
         self.max_bg_range=max_bg_range
+        self.mask_gt=mask_gt
 
 
     def __call__(self,input_img,gt,original_img=None):
@@ -35,6 +36,7 @@ class RandomPlasma(object):
             return input_img, gt, original_img
         quantile=torch.rand(1).item()*(self.quantile_max-self.quantile_min)+self.quantile_min
         roughness=torch.rand(1).item()*(self.roughness_max-self.roughness_max)+self.roughness_min
+        roughness=.5
         remove=torch.rand(1).item()>self.low_quantile_prob
         min_bg=torch.rand(1).item()
         min_bg,max_bg=sorted([min_bg,min_bg+torch.rand(1).item()*self.max_bg_range-self.max_bg_range/2])
@@ -52,20 +54,21 @@ class RandomPlasma(object):
                                                scale_factor=[self.scale_factor,self.scale_factor],
                                                mode='bilinear')[0,0,:width,:height]
         if remove:
-            quantile_idx=int(plasma.view(-1).size()[0]*quantile)
-            thr=torch.kthvalue(plasma.view(-1), quantile_idx)[0].item()
-            mask=plasma>thr
-        else:
-            quantile_idx = int(plasma.view(-1).size()[0]*(1-quantile))
+            quantile_idx=int(plasma.view(-1).size()[0]*(1-quantile))
             thr=torch.kthvalue(plasma.view(-1), quantile_idx)[0].item()
             mask=plasma<thr
+        else:
+            quantile_idx = int(plasma.view(-1).size()[0]*(quantile))
+            thr=torch.kthvalue(plasma.view(-1), quantile_idx)[0].item()
+            mask=plasma>thr
         mask=mask.float()
         original_img = original_img * mask
         input_img=input_img[0,:,:]*original_img+plasma*(1-original_img)
-        gt = mask * gt[0,:,:]
+        if self.mask_gt:
+            gt = mask * gt[1,:,:]
+            gt = torch.cat([1 - gt.unsqueeze(dim=0), gt.unsqueeze(dim=0)], dim=0)
         input_img = torch.cat([input_img.unsqueeze(dim=0),1-input_img.unsqueeze(dim=0)],dim=0)
-        gt = torch.cat([gt.unsqueeze(dim=0), 1 - gt.unsqueeze(dim=0)], dim=0)
-        return input_img, gt, original_img,plasma
+        return input_img, gt, original_img
 
 
 class RandomCropTo(object):
@@ -100,8 +103,9 @@ class RandomCropTo(object):
             original_img=torch.ones_like(input_img)
             input_img = torch.nn.functional.pad(input_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                                             int(x_needed / 2), int(x_needed - x_needed / 2)))
-            gt = torch.nn.functional.pad(gt, (int(y_needed / 2), int(y_needed - y_needed / 2),
+            gt = torch.nn.functional.pad(gt[1,:,:], (int(y_needed / 2), int(y_needed - y_needed / 2),
                                               int(x_needed / 2), int(x_needed - x_needed / 2)))
+            gt=torch.cat([1-gt.unsqueeze(dim=0),gt.unsqueeze(dim=0)],dim=0)
             original_img=torch.nn.functional.pad(original_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                               int(x_needed / 2), int(x_needed - x_needed / 2)))
         else:
@@ -207,48 +211,34 @@ class Dibco:
 
         return {k: (id2in[k], id2gt[k]) for k in id2gt.keys()}
 
-    @staticmethod
-    def Dibco2009(crop_sz=[512, 512], root="/tmp/dibco", input_transform=dibco_transform_gray_train,
-                  gt_transform=dibco_transform_gray_train):
-        return Dibco(partitions=["2009_HW", "2009_P"], crop_sz=crop_sz, root=root, input_transform=input_transform,
-                     gt_transform=gt_transform)
 
     @staticmethod
-    def Dibco2010(crop_sz=[512, 512], root="/tmp/dibco", input_transform=dibco_transform_gray_train,
-                  gt_transform=dibco_transform_gray_train):
-        return Dibco(partitions=["2010"], crop_sz=crop_sz, root=root, input_transform=input_transform,
-                     gt_transform=gt_transform)
+    def Dibco2009(**kwargs):
+        kwargs["partitions"] = ["2009_HW", "2009_P"]
+        return Dibco(**kwargs)
+
 
     @staticmethod
-    def Dibco2011(crop_sz=[512, 512], root="/tmp/dibco", input_transform=dibco_transform_gray_train,
-                  gt_transform=dibco_transform_gray_train):
-        return Dibco(partitions=["2011_P", "2011_HW"], crop_sz=crop_sz, root=root, input_transform=input_transform,
-                     gt_transform=gt_transform)
+    def Dibco2010(**kwargs):
+        kwargs["partitions"] = ["2010"]
 
-    @staticmethod
-    def Dibco2013(crop_sz=[512, 512], root="/tmp/dibco", input_transform=dibco_transform_gray_train,
-                  gt_transform=dibco_transform_gray_train):
-        return Dibco(partitions=["2013"], crop_sz=crop_sz, root=root, input_transform=input_transform,
-                     gt_transform=gt_transform)
-
-    def Dibco2014(crop_sz=[512, 512], root="/tmp/dibco", input_transform=dibco_transform_gray_train,
-                  gt_transform=dibco_transform_gray_train):
-        return Dibco(partitions=["2014"], crop_sz=crop_sz, root=root, input_transform=input_transform,
-                     gt_transform=gt_transform)
 
     def __init__(self, partitions=["2009_HW", "2009_P"], crop_sz=[512, 512], root="/tmp/dibco", train=True,
                  scale_range=None,
-                 input_transform=dibco_transform_gray_train, gt_transform=dibco_transform_gray_train):
+                 input_transform=dibco_transform_gray_train, gt_transform=dibco_transform_gray_train,max_plasma_quantile=.5, max_plasma_roughness=.7,mask_gt=False):
         self.input_transform = input_transform
         self.gt_transform = gt_transform
         self.root = root
-        if crop_sz is not None or scale_range is not None:
+        if (crop_sz is not None or scale_range is not None) and train:
             if scale_range is None:
                 scale_range = (1.0, 1.0)
             self.crop = RandomCropTo(crop_sz, scale_range=scale_range)
         else:
-            self.crop = lambda x, y: (x, y)
-        self.plasma=RandomPlasma(occurence_prob=1.0)
+            self.crop = lambda x, y: (x, y, torch.ones_like(x))
+        if (max_plasma_quantile>0) and train:
+            self.plasma=RandomPlasma(occurence_prob=1.0,roughness_max=max_plasma_roughness,mask_gt=mask_gt,quantile_max=max_plasma_quantile)
+        else:
+            self.plasma = lambda x, y, z: (x, y, z)
         data = {}
         for partition in partitions:
             for url in Dibco.urls[partition]:
