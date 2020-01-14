@@ -105,8 +105,8 @@ class RandomCropTo(object):
                                                             int(x_needed / 2), int(x_needed - x_needed / 2)))
             gt = torch.nn.functional.pad(gt[1,:,:], (int(y_needed / 2), int(y_needed - y_needed / 2),
                                               int(x_needed / 2), int(x_needed - x_needed / 2)))
-            gt=torch.cat([1-gt.unsqueeze(dim=0),gt.unsqueeze(dim=0)],dim=0)
-            original_img=torch.nn.functional.pad(original_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
+            gt = torch.cat([1-gt.unsqueeze(dim=0),gt.unsqueeze(dim=0)],dim=0)
+            original_img = torch.nn.functional.pad(original_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                               int(x_needed / 2), int(x_needed - x_needed / 2)))
         else:
             original_img = torch.ones_like(input_img)
