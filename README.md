@@ -2,12 +2,7 @@
 
 Install dependencies
 ```bash
-pip install --user --upgrade numpy scikit-image scipy opencv-contrib-python
-```
-
-The package depends in a recent torchvision:
-```bash
-pip install --user --upgrade git+https://github.com/pytorch/vision
+sudo apt install unrar atool p7zip-full
 ```
 
 Install current version:
