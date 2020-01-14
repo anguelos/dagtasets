@@ -36,7 +36,6 @@ class RandomPlasma(object):
             return input_img, gt, original_img
         quantile=torch.rand(1).item()*(self.quantile_max-self.quantile_min)+self.quantile_min
         roughness=torch.rand(1).item()*(self.roughness_max-self.roughness_max)+self.roughness_min
-        roughness=.5
         remove=torch.rand(1).item()>self.low_quantile_prob
         min_bg=torch.rand(1).item()
         min_bg,max_bg=sorted([min_bg,min_bg+torch.rand(1).item()*self.max_bg_range-self.max_bg_range/2])
@@ -44,15 +43,17 @@ class RandomPlasma(object):
         max_bg = min(max_bg, 1.0)
         _,width,height = input_img.size()
         plasma_width,plasma_height=int(math.ceil(width/self.scale_factor)),int(math.ceil(height/self.scale_factor))
+
         #creating small plasma for speed
         plasma=diamond_square([plasma_width,plasma_height],0,10,roughness)
         plasma=torch.Tensor(plasma)
         _min=plasma.min().item()
         plasma = (max_bg-min_bg)*((plasma-_min)/(plasma.max()-_min))+min_bg
+
         #growing plasma to image size
         plasma=torch.nn.functional.interpolate(torch.Tensor(plasma).unsqueeze(dim=0).unsqueeze(dim=0),
                                                scale_factor=[self.scale_factor,self.scale_factor],
-                                               mode='bilinear')[0,0,:width,:height]
+                                               mode='bilinear', align_corners=True)[0,0,:width,:height]
         if remove:
             quantile_idx=int(plasma.view(-1).size()[0]*(1-quantile))
             thr=torch.kthvalue(plasma.view(-1), quantile_idx)[0].item()
@@ -87,7 +88,7 @@ class RandomCropTo(object):
             scale = self.scale_range[0] + float(torch.rand(1)) * (self.scale_range[1] - self.scale_range[0])
             width = int(math.round(width * scale))
             height = int(math.round(height * scale))
-            input_img = torch.nn.functional.interpolate(input_img.unsqueeze(dim=0), (width, height), mode="bilinear")
+            input_img = torch.nn.functional.interpolate(input_img.unsqueeze(dim=0), (width, height), mode="bilinear",align_corners=True)
             gt = torch.nn.functional.interpolate(gt.unsqueeze(dim=0), (width, height), mode="nearest")
             input_img, gt = torch.squeeze(input_img, 0), torch.squeeze(gt, 0)
         if (width < self.minimum_width or height < self.minimum_height) and self.pad_if_needed:
@@ -150,7 +151,9 @@ dibco_transform_color_inference = torchvision.transforms.Compose([
 
 
 class Dibco:
-    """
+    """Provides one or more of the DIBCO datasets.
+
+    Other than standard torchvision augmentations, Augmentation
 
     Os dependencies: Other than python packages, unrar and arepack CLI tools must be installed.
     In Ubuntu they can be installed with: sudo apt install unrar atool p7zip-full
@@ -221,7 +224,22 @@ class Dibco:
     @staticmethod
     def Dibco2010(**kwargs):
         kwargs["partitions"] = ["2010"]
+        return Dibco(**kwargs)
 
+    @staticmethod
+    def Dibco2011(**kwargs):
+        kwargs["partitions"] = ["2011_P","2011_HW"]
+        return Dibco(**kwargs)
+
+    @staticmethod
+    def Dibco2012(**kwargs):
+        kwargs["partitions"] = ["2012"]
+        return Dibco(**kwargs)
+
+    @staticmethod
+    def Dibco2013(**kwargs):
+        kwargs["partitions"] = ["2013"]
+        return Dibco(**kwargs)
 
     def __init__(self, partitions=["2009_HW", "2009_P"], crop_sz=[512, 512], root="/tmp/dibco", train=True,
                  scale_range=None,

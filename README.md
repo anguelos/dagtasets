@@ -16,6 +16,8 @@ pip install --user --upgrade git+https://github.com/anguelos/dagtasets
 
 A collection of datasets suited for documents and text image analysis.
 
+
+
 # scenethecizer
 
 A python module for generating document datasets for training models.
@@ -23,3 +25,7 @@ A python module for generating document datasets for training models.
 # lm_util
 
 General utilities related to language models and training
+
+# Acknowledgements:
+
+* Diamond Square algorithm used in DIBCO data augmentation taken from [https://github.com/buckinha/DiamondSquare]
