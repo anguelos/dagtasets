@@ -11,8 +11,61 @@ import torchvision
 from PIL import Image
 
 from .util import resumable_download, shell_stdout
-
+from .DiamondSquare import diamond_square
 from io import BytesIO as FileReadWrapper
+
+
+class RandomPlasma(object):
+    def __init__(self,occurence_prob=.3, quantile_min=.05,quantile_max=.5, scale_factor=2.0,roughness_min=.1,
+                 roughness_max=.7,low_quantile_prob=.5,max_bg_range=.7):
+        self.occurence_prob=occurence_prob
+        self.scale_factor=scale_factor
+        self.roughness_min=roughness_min
+        self.roughness_max=roughness_max
+        self.quantile_min=quantile_min
+        self.quantile_max=quantile_max
+        self.low_quantile_prob=low_quantile_prob
+        self.max_bg_range=max_bg_range
+
+
+    def __call__(self,input_img,gt,original_img=None):
+        if original_img is None:
+            original_img = torch.ones_like(input_img[0,:,:])
+        if torch.rand(1).item()>self.occurence_prob:
+            return input_img, gt, original_img
+        quantile=torch.rand(1).item()*(self.quantile_max-self.quantile_min)+self.quantile_min
+        roughness=torch.rand(1).item()*(self.roughness_max-self.roughness_max)+self.roughness_min
+        remove=torch.rand(1).item()>self.low_quantile_prob
+        min_bg=torch.rand(1).item()
+        min_bg,max_bg=sorted([min_bg,min_bg+torch.rand(1).item()*self.max_bg_range-self.max_bg_range/2])
+        min_bg=max(min_bg,0.0)
+        max_bg = min(max_bg, 1.0)
+        _,width,height = input_img.size()
+        plasma_width,plasma_height=int(math.ceil(width/self.scale_factor)),int(math.ceil(height/self.scale_factor))
+        #creating small plasma for speed
+        plasma=diamond_square([plasma_width,plasma_height],0,10,roughness)
+        plasma=torch.Tensor(plasma)
+        _min=plasma.min().item()
+        plasma = (max_bg-min_bg)*((plasma-_min)/(plasma.max()-_min))+min_bg
+        #growing plasma to image size
+        plasma=torch.nn.functional.interpolate(torch.Tensor(plasma).unsqueeze(dim=0).unsqueeze(dim=0),
+                                               scale_factor=[self.scale_factor,self.scale_factor],
+                                               mode='bilinear')[0,0,:width,:height]
+        if remove:
+            quantile_idx=int(plasma.view(-1).size()[0]*quantile)
+            thr=torch.kthvalue(plasma.view(-1), quantile_idx)[0].item()
+            mask=plasma>thr
+        else:
+            quantile_idx = int(plasma.view(-1).size()[0]*(1-quantile))
+            thr=torch.kthvalue(plasma.view(-1), quantile_idx)[0].item()
+            mask=plasma<thr
+        mask=mask.float()
+        original_img = original_img * mask
+        input_img=input_img[0,:,:]*original_img+plasma*(1-original_img)
+        gt = mask * gt[0,:,:]
+        input_img = torch.cat([input_img.unsqueeze(dim=0),1-input_img.unsqueeze(dim=0)],dim=0)
+        gt = torch.cat([gt.unsqueeze(dim=0), 1 - gt.unsqueeze(dim=0)], dim=0)
+        return input_img, gt, original_img,plasma
 
 
 class RandomCropTo(object):
@@ -44,10 +97,15 @@ class RandomCropTo(object):
                 y_needed = 1+self.minimum_height - height
             else:
                 y_needed = 0
+            original_img=torch.ones_like(input_img)
             input_img = torch.nn.functional.pad(input_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                                             int(x_needed / 2), int(x_needed - x_needed / 2)))
             gt = torch.nn.functional.pad(gt, (int(y_needed / 2), int(y_needed - y_needed / 2),
                                               int(x_needed / 2), int(x_needed - x_needed / 2)))
+            original_img=torch.nn.functional.pad(original_img, (int(y_needed / 2), int(y_needed - y_needed / 2),
+                                              int(x_needed / 2), int(x_needed - x_needed / 2)))
+        else:
+            original_img = torch.ones_like(input_img)
         #print(width,height,input_img.size())
         max_left = max(width - self.minimum_width, 1)
         max_top = max(height - self.minimum_height, 1)
@@ -58,9 +116,10 @@ class RandomCropTo(object):
         bottom = top + self.minimum_height
         #print("LTRB",left,top,right,bottom)
         #print(input_img.size(), gt.size())
-        input_img, gt = input_img[:, left:right, top:bottom], gt[:, left:right, top:bottom]
+        input_img, gt, original_img = input_img[:, left:right, top:bottom], gt[:, left:right, top:bottom], original_img[:, left:right, top:bottom]
+
         #print(input_img.size(), gt.size())
-        return input_img, gt
+        return input_img, gt,original_img[0,:,:]
 
 
 dibco_transform_gray_train = torchvision.transforms.Compose([
@@ -189,6 +248,7 @@ class Dibco:
             self.crop = RandomCropTo(crop_sz, scale_range=scale_range)
         else:
             self.crop = lambda x, y: (x, y)
+        self.plasma=RandomPlasma(occurence_prob=1.0)
         data = {}
         for partition in partitions:
             for url in Dibco.urls[partition]:
@@ -245,7 +305,8 @@ class Dibco:
     def __getitem__(self, item):
         input_img = self.input_transform(self.inputs[item])
         gt = self.gt_transform(self.gt[item])
-        return self.crop(input_img, gt)
+        input_img,gt, original_img=self.crop(input_img, gt)
+        return self.plasma(input_img,gt,original_img)
 
     def __len__(self):
         return len(self.sample_ids)
